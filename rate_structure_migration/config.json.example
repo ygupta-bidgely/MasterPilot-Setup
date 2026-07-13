@@ -1,0 +1,5 @@
+{
+  "TARGET_BASE_URL": "{{url}}",
+  "TARGET_TOKEN": "{{access_token}}",
+  "TARGET_PILOT_ID": "10001"
+}

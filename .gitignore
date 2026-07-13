@@ -1,3 +1,7 @@
 .code-review-graph/
 __pycache__/
 *.pyc
+
+# Contain live tokens - use the .example files as templates
+rate_structure_migration/sources.csv
+rate_structure_migration/config.json
