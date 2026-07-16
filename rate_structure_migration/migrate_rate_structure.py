@@ -7,7 +7,6 @@ CSV) and push each into a single target environment (configured via JSON).
 import csv
 import json
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
@@ -17,16 +16,6 @@ CONFIG_PATH = SCRIPT_DIR / "config.json"
 SOURCES_CSV_PATH = SCRIPT_DIR / "sources.csv"
 
 TIMEOUT = 30.0
-# Number of source rows to migrate concurrently.
-MAX_WORKERS = 5
-
-
-def _emit(log, msg):
-    """Append to a per-row log buffer if given, else print immediately."""
-    if log is None:
-        print(msg)
-    else:
-        log.append(msg)
 
 
 def load_target_config():
@@ -57,7 +46,10 @@ def load_sources():
             elif last[key] is not None:
                 row[key] = last[key]
             else:
-                raise ValueError(f"{SOURCES_CSV_PATH} row {i}: '{key}' is blank with no prior value to fill down from")
+                raise ValueError(
+                    f"{SOURCES_CSV_PATH} row {i}: '{key}' is blank with no prior "
+                    "value to fill down from"
+                )
     return rows
 
 
@@ -84,15 +76,17 @@ def _get_json_payload(source_base_url, source_token, path):
 
 def fetch_rate_structure(source_base_url, source_token, source_pilot_id, plan_id):
     return _get_json_payload(
-        source_base_url, source_token,
-        f"/v3.0/rates/utilities/{source_pilot_id}/plans/{plan_id}/structure"
+        source_base_url,
+        source_token,
+        f"/v3.0/rates/utilities/{source_pilot_id}/plans/{plan_id}/structure",
     )
 
 
 def fetch_plan_info(source_base_url, source_token, source_pilot_id, plan_id):
     return _get_json_payload(
-        source_base_url, source_token,
-        f"/v3.0/rates/utilities/{source_pilot_id}/plans/{plan_id}/info"
+        source_base_url,
+        source_token,
+        f"/v3.0/rates/utilities/{source_pilot_id}/plans/{plan_id}/info",
     )
 
 
@@ -122,7 +116,7 @@ def _build_rate_dto(row):
     }
 
 
-def build_rate_plan_configuration(rate_structure, plan_info, target_pilot_id, target_plan_id, log=None):
+def build_rate_plan_configuration(rate_structure, plan_info, target_pilot_id, target_plan_id):
     """Convert the flat GET /structure response (RateInfo rows) into the nested
     RatePlanConfigurationDTO shape the POST /configuration endpoint expects,
     mirroring pingpong's RatesConfigurationService.getComponents grouping.
@@ -155,7 +149,11 @@ def build_rate_plan_configuration(rate_structure, plan_info, target_pilot_id, ta
 
         winner = winner_by_window.get(window_key)
         if winner is None or erate_id > winner["erateId"]:
-            winner_by_window[window_key] = {"erateId": erate_id, "rate_dto": rate_dto, "comp_key": comp_key}
+            winner_by_window[window_key] = {
+                "erateId": erate_id,
+                "rate_dto": rate_dto,
+                "comp_key": comp_key,
+            }
 
     kept = len(winner_by_window)
     dropped = len(rate_structure) - kept
@@ -163,8 +161,10 @@ def build_rate_plan_configuration(rate_structure, plan_info, target_pilot_id, ta
         components_by_key[winner["comp_key"]]["rates"].append(winner["rate_dto"])
 
     if dropped:
-        _emit(log, f"Collapsed {len(rate_structure)} row(s) -> {kept} "
-                   f"(dropped {dropped} same-window row(s), kept highest erateId per window).")
+        print(
+            f"Collapsed {len(rate_structure)} row(s) -> {kept} "
+            f"(dropped {dropped} same-window row(s), kept highest erateId per window)."
+        )
 
     return {
         "utilityId": int(target_pilot_id),
@@ -180,17 +180,15 @@ def build_rate_plan_configuration(rate_structure, plan_info, target_pilot_id, ta
 
 def push_rate_structure(target_base_url, target_token, target_pilot_id, rate_plan_configuration):
     url = f"{target_base_url}/v3.0/rates/configuration/utilityId/{target_pilot_id}"
-    headers = {
-        "Authorization": f"Bearer {target_token}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {target_token}", "Content-Type": "application/json"}
 
-    return requests.post(url, headers=headers, data=json.dumps([rate_plan_configuration]), timeout=TIMEOUT)
+    return requests.post(
+        url, headers=headers, data=json.dumps([rate_plan_configuration]), timeout=TIMEOUT
+    )
 
 
 def process_source(row, target):
-    """Migrate one CSV row. Returns (ok, log_text). All progress is collected
-    into a per-row buffer so concurrent runs don't interleave output."""
+    """Migrate one CSV row. Returns True on success, False on failure."""
     source_base_url = row["SOURCE_BASE_URL"]
     source_token = row["ENV_TOKEN"]
     source_pilot_id = row["SOURCE_PILOT_ID"]
@@ -199,37 +197,49 @@ def process_source(row, target):
     # keeps the source plan number.
     target_plan_id = row.get("TARGET_PLAN_ID", "").strip() or plan_id
 
-    tag = f"[plan {plan_id}" + (f"->{target_plan_id}] " if target_plan_id != plan_id else "] ")
-    log = [f"{tag}Fetching rate structure for utility {source_pilot_id} from {source_base_url}..."]
-
+    print(
+        f"\nFetching rate structure for utility {source_pilot_id}, "
+        f"plan {plan_id} from {source_base_url}..."
+    )
     try:
-        rate_structure = fetch_rate_structure(source_base_url, source_token, source_pilot_id, plan_id)
+        rate_structure = fetch_rate_structure(
+            source_base_url, source_token, source_pilot_id, plan_id
+        )
         plan_info = fetch_plan_info(source_base_url, source_token, source_pilot_id, plan_id)
     except Exception as e:
-        log.append(f"{tag}Failed: {e}")
-        return False, "\n".join(log)
-    log.append(f"{tag}Fetched successfully ({len(rate_structure)} row(s)).")
+        print(f"Failed: {e}")
+        return False
+    print(f"Fetched rate structure successfully ({len(rate_structure)} row(s)).")
 
     rate_plan_configuration = build_rate_plan_configuration(
-        rate_structure, plan_info, target["TARGET_PILOT_ID"], target_plan_id, log=log
+        rate_structure, plan_info, target["TARGET_PILOT_ID"], target_plan_id
     )
 
-    log.append(f"{tag}Pushing to {target['TARGET_BASE_URL']} for utility {target['TARGET_PILOT_ID']}, "
-               f"plan {target_plan_id}...")
+    if target_plan_id != plan_id:
+        print(f"Remapping plan {plan_id} -> {target_plan_id} on target.")
+    print(
+        f"Pushing rate structure to {target['TARGET_BASE_URL']} for "
+        f"utility {target['TARGET_PILOT_ID']}, plan {target_plan_id}..."
+    )
     try:
         response = push_rate_structure(
-            target["TARGET_BASE_URL"], target["TARGET_TOKEN"], target["TARGET_PILOT_ID"], rate_plan_configuration
+            target["TARGET_BASE_URL"],
+            target["TARGET_TOKEN"],
+            target["TARGET_PILOT_ID"],
+            rate_plan_configuration,
         )
     except Exception as e:
-        log.append(f"{tag}Failed: {e}")
-        return False, "\n".join(log)
+        print(f"Failed: {e}")
+        return False
 
     if response.status_code in (200, 201):
-        log.append(f"{tag}Success: HTTP {response.status_code} {response.text}")
-        return True, "\n".join(log)
+        print(f"Success: HTTP {response.status_code}")
+        print(response.text)
+        return True
 
-    log.append(f"{tag}Failed: HTTP {response.status_code} {response.text}")
-    return False, "\n".join(log)
+    print(f"Failed: HTTP {response.status_code}")
+    print(response.text)
+    return False
 
 
 def main():
@@ -240,21 +250,7 @@ def main():
         print(f"No rows found in {SOURCES_CSV_PATH}")
         sys.exit(1)
 
-    workers = min(MAX_WORKERS, len(sources))
-    print(f"Migrating {len(sources)} plan(s) with {workers} worker(s)...")
-
-    # Preserve CSV order in the output even though rows finish out of order.
-    results = [None] * len(sources)
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {executor.submit(process_source, row, target): i for i, row in enumerate(sources)}
-        for future in as_completed(futures):
-            results[futures[future]] = future.result()
-
-    failures = 0
-    for ok, text in results:
-        print(f"\n{text}")
-        if not ok:
-            failures += 1
+    failures = sum(0 if process_source(row, target) else 1 for row in sources)
 
     if failures:
         print(f"\n{failures} of {len(sources)} row(s) failed.")

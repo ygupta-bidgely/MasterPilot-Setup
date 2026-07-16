@@ -1,0 +1,4 @@
+PERSONA,PERSONA_DESCRIPTION,SOURCE_UUID,SOURCE_ENVIRONMENT,RATE_PLAN,PRIMARY_EMAIL,BILLING_CYCLE,METER_FUEL,BB_DURATION
+High usage EV owner,Large home with an EV on a TOU plan,1e893a83-97aa-46ec-b028-a31ff681cdbb,NA,24,,CDG_01,AMI-ELECTRIC,3
+Dual fuel family,Gas heating + electric,2f904b94-08bb-57fd-c139-b42gg792deec,NA,,persona.dualfuel@bidgely.com,,AMI-ELECTRIC|AMI-GAS,0
+Low usage apartment,Small single-occupant flat,3a015c05-19cc-68ae-d240-c53hh803efgd,EU,,,,,

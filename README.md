@@ -1,63 +1,65 @@
 # MasterPilot-Setup
 
-Tooling for setting up master-pilot environments.
+Tooling for setting up master-pilot environments. Each tool lives in its own
+folder with its own README. Dependencies and the Python environment are managed
+with `uv`.
 
-## Rate structure migration
+## Prerequisites
 
-[`rate_structure_migration/`](rate_structure_migration/) migrates utility rate
-plans from one or more **source** environments into a single **target**
-environment. For each plan it fetches the flat rate structure from the source,
-reshapes it into the nested `RatePlanConfigurationDTO` the target's
-configuration API expects, and POSTs it.
+- **[uv](https://docs.astral.sh/uv/)** — install with `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- **git**
 
-### Setup
+uv manages Python itself (it will fetch CPython 3.12 per `.python-version`), so
+you don't need a separate Python install.
 
-The real config files hold live tokens and are git-ignored. Copy the templates
-and fill them in:
+## Getting started
 
 ```bash
-cd rate_structure_migration
+# 1. Clone the repo
+git clone <repo-url>
+cd MasterPilot-Setup
+
+# 2. Create the virtualenv and install dependencies from the lockfile
+uv sync
+```
+
+## Tools
+
+| Tool | What it does |
+|------|--------------|
+| [`rate_structure_migration/`](rate_structure_migration/README.md) | Migrate utility rate plans from one or more source environments into a single target environment. |
+| [`cdg_user_setup/`](cdg_user_setup/README.md) | Create QA users by running the full CDG (Customer Data Generator) porting flow, driven by `config.json` + `sources.csv`. |
+
+Then pick a tool, copy its config templates, and fill them in:
+
+```bash
+cd cdg_user_setup                # or rate_structure_migration
 cp config.json.example config.json
 cp sources.csv.example sources.csv
 ```
 
-**`config.json`** — the single target environment every plan is pushed to:
-
-```json
-{
-  "TARGET_BASE_URL": "https://api-server-masterpilot-dev.bidgely.com",
-  "TARGET_TOKEN": "<target bearer token>",
-  "TARGET_PILOT_ID": "10001"
-}
-```
-
-**`sources.csv`** — one row per plan to migrate:
-
-```csv
-SOURCE_BASE_URL,ENV_TOKEN,SOURCE_PILOT_ID,PLAN_ID,TARGET_PLAN_ID
-https://naapi2-external.bidgely.com,<source bearer token>,10057,24,
-,,10057,2,22
-```
-
-| Column | Required | Notes |
-|--------|----------|-------|
-| `SOURCE_BASE_URL` | yes\* | Source environment base URL. |
-| `ENV_TOKEN` | yes\* | Source bearer token. |
-| `SOURCE_PILOT_ID` | yes | Source utility/pilot id to read from. |
-| `PLAN_ID` | yes | Source plan number to read. |
-| `TARGET_PLAN_ID` | no | Plan number to write on the target. Blank keeps `PLAN_ID`. |
-
-\* `SOURCE_BASE_URL` and `ENV_TOKEN` may be left blank to reuse the value from
-the row above — handy when migrating several plans from the same source
-environment.
-
-### Running
+Run the tool's script with `uv run` (it auto-syncs the env first):
 
 ```bash
-cd rate_structure_migration
-python3 migrate_rate_structure.py
+uv run python cdg_user_setup/create_users.py --limit 1
+uv run python rate_structure_migration/migrate_rate_structure.py
 ```
 
-Requires Python 3 and the `requests` library (`pip install requests`). Exits
-non-zero if any row fails; each row is independent, so one failure does not stop
-the others.
+**The real `config.json` / `sources.csv` hold live tokens and are git-ignored** —
+only the `*.example` templates are committed. Each folder's README documents
+every field and the run commands.
+
+## Linting
+
+```bash
+uv run ruff check .     # lint
+uv run ruff format .    # auto-format
+```
+
+## Troubleshooting
+
+- `uv: command not found` → install uv (see Prerequisites), then re-open your shell.
+- `... not found. Copy <file>.example to <file> ...` → you haven't created the
+  real `config.json` / `sources.csv` yet (see Getting started).
+- `Missing required config key(s) ...` / `missing column(s) ...` → a required
+  field is blank or a CSV header is missing; check the tool's README table.

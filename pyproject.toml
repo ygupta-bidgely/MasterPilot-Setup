@@ -1,0 +1,31 @@
+[project]
+name = "masterpilot-setup"
+version = "0.1.0"
+description = "Tooling for setting up master-pilot environments: rate-structure migration and CDG user creation."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.31",
+]
+
+# Application, not an installable library — uv manages the venv + lockfile and
+# runs the scripts, but nothing here gets built/published.
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [
+    ".venv",
+    "__pycache__",
+    ".code-review-graph",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -1,7 +1,24 @@
-.code-review-graph/
+# Python
 __pycache__/
-*.pyc
+*.py[oc]
+build/
+dist/
+*.egg-info/
+
+# uv / virtualenv (managed by `uv sync`; the lockfile IS committed)
+.venv/
+
+# Caches
+.ruff_cache/
+.pytest_cache/
+
+# IDE / OS / agent tooling
+.code-review-graph/
+.DS_Store
 
 # Contain live tokens - use the .example files as templates
 rate_structure_migration/sources.csv
 rate_structure_migration/config.json
+cdg_user_setup/sources.csv
+cdg_user_setup/config.json
+cdg_user_setup/create_users_results.json
