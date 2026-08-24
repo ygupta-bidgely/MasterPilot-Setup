@@ -1,0 +1,683 @@
+{
+  "interactions": [
+    {
+      "id": "MOCK_NBI_EE_A_E_AO_001",
+      "score": 0.29,
+      "rank": 1,
+      "hash": "ed1261076e77ce4bb22b9f80bab14775aa42aa5e8ec0c5917a0206487f372618",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "8",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_AO_003",
+        "score": 0.123,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-AO-001",
+        "score": 0.315
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_AO_009",
+      "score": 0.391,
+      "rank": 2,
+      "hash": "55eb7d47deafdfc3f8c5272c019ad8f851775337f2dee91877bb736faebf8b65",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "8",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_AO_003",
+        "score": 0.25,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-AO-002",
+        "score": 0.435
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_AO_013",
+      "score": 0.45,
+      "rank": 3,
+      "hash": "5c0bad5edf6f576f54bbb79c2574833cbd5f17c7e4988a3613cbc78175317851",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "8",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_AO_003",
+        "score": 0.365,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-AO-003",
+        "score": 0.307
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_AO_021",
+      "score": 0.173,
+      "rank": 4,
+      "hash": "17d718299132c2dd2fd7feb65ce46a308e96498f795d8cbe2321f84c50e5ff72",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "8",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_AO_003",
+        "score": 0.344,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-AO-005",
+        "score": 0.114
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_001",
+      "score": 0.269,
+      "rank": 5,
+      "hash": "b90a0bb9fadd012427e7008a1de583540d560d650dab3c8af565009c86027a3b",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.182,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-001",
+        "score": 0.117
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_005",
+      "score": 0.111,
+      "rank": 6,
+      "hash": "86b4a33882cd82a5b8dca3669668d0b2a786db4a572902daf15971eccf74903b",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.19,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-002",
+        "score": 0.197
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_009",
+      "score": 0.238,
+      "rank": 7,
+      "hash": "0568451701cb6dd66b5c93ca8502c1e469d60b285abf5395aac117be7d198366",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.47,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-003",
+        "score": 0.427
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_013",
+      "score": 0.461,
+      "rank": 8,
+      "hash": "d3655ce0fce25d8a6997917b79b4410def3ffcbc751fb4985d7add61376e80d0",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.234,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-004",
+        "score": 0.422
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_017",
+      "score": 0.153,
+      "rank": 9,
+      "hash": "29db87ddb11f741a5cf5b6d0372aa9a173ac48d13fb654b635c8f2f871746173",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.256,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-005",
+        "score": 0.146
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_021",
+      "score": 0.299,
+      "rank": 10,
+      "hash": "c1cd7ada008724bb98ca9ae9dc574d79e619137ec9b068597eb66b27790feed7",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.257,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-006",
+        "score": 0.39
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_025",
+      "score": 0.309,
+      "rank": 11,
+      "hash": "311f208db1de2be12fdda94f440ef41f7dcac59e28124d154764d9d9b1cce7dc",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.179,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-007",
+        "score": 0.26
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_029",
+      "score": 0.39,
+      "rank": 12,
+      "hash": "1b584086195f2022f73d3a8b1808f5afee1100e1274b0707c34ca1190693f6f3",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.461,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-008",
+        "score": 0.461
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_033",
+      "score": 0.269,
+      "rank": 13,
+      "hash": "89c13e94666ef41a947b17939ea28f4e8a01489cf7f8c336423fa31fc5636ff2",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.136,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-009",
+        "score": 0.149
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_037",
+      "score": 0.427,
+      "rank": 14,
+      "hash": "1a8ae91c56a63878126f6dbe9bbebb083c06c72049bf8eb931fd4613c3cfc5f6",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_BLL_E_TE_001",
+        "score": 0.298,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_T-E-RF-010",
+        "score": 0.138
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_AO_025",
+      "score": 0.293,
+      "rank": 15,
+      "hash": "1032f3d0a7fe60924d1fdc9f6a593eee61dbe1e2f4d7da3b44711fd03dc3fe8c",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "8",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_AO_002",
+        "score": 0.302,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_A_A_E_AO_001",
+        "score": 0.129
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_AO_026",
+      "score": 0.435,
+      "rank": 16,
+      "hash": "d4cf01fd2b8213043c673c4cb4550eaaeb25c49fdbebdb48311149f849cbd846",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "8",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_AO_002",
+        "score": 0.352,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_A_A_E_AO_002",
+        "score": 0.454
+      }
+    },
+    {
+      "id": "MOCK_NBI_EE_A_E_RF_051",
+      "score": 0.372,
+      "rank": 17,
+      "hash": "11db1ea93c97f99d152ef35ae0171bcf1ce8f8d3103704b1eafaf67f683993d4",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "9",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SHC_E_RF_002",
+        "score": 0.113,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_A_A_E_RF_001",
+        "score": 0.13
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_001",
+      "score": 0.398,
+      "rank": 18,
+      "hash": "68f7f0d45b19a8c59383013702cc78892ad92c5ba7865c506cc237404c84aa7e",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SHC_E_TE_001",
+        "score": 0.359,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_001",
+        "score": 0.404
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_004",
+      "score": 0.327,
+      "rank": 19,
+      "hash": "b5cad7041344f0514f21489df5569ad363181187aec7aac05be1e4bf9bf9b9b9",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SHC_E_TE_001",
+        "score": 0.144,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_002",
+        "score": 0.264
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_006",
+      "score": 0.245,
+      "rank": 20,
+      "hash": "e19027bd08ec87f0f4dd90513f49f412f0feacf73e0d91fad1cf07410f6bcb0b",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_TE_001",
+        "score": 0.128,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_003",
+        "score": 0.443
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_010",
+      "score": 0.151,
+      "rank": 21,
+      "hash": "19d6d0f26cd5baee6516a014c9c6964aca5c5e80e27c0b4a32491892694d8217",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_TE_003",
+        "score": 0.407,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_004",
+        "score": 0.117
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_014",
+      "score": 0.403,
+      "rank": 22,
+      "hash": "09c52faa89ede2c7247d50a80f6a9c81044ae10c1a80a6d6bec83672541f2649",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SHC_E_TE_003",
+        "score": 0.373,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_005",
+        "score": 0.392
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_016",
+      "score": 0.195,
+      "rank": 23,
+      "hash": "908746d945ba7b75e0b314e41fc15c2ada141ec209468cfe6f3238e8e33a98e9",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_TE_001",
+        "score": 0.276,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_006",
+        "score": 0.165
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_SH_001",
+      "score": 0.226,
+      "rank": 24,
+      "hash": "e9c056912a7e93fb4f5a6cf4d0741dd3ab122202e2091ca414a5c8c0e6695dea",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "3",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_SH_001",
+        "score": 0.391,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_SH_001",
+        "score": 0.22
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_018",
+      "score": 0.272,
+      "rank": 25,
+      "hash": "54cfb9b3958d8a739a11d63614572666880330ab3e0d84bd1dd9f950bca10fc7",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_TE_001",
+        "score": 0.291,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_007",
+        "score": 0.492
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_020",
+      "score": 0.432,
+      "rank": 26,
+      "hash": "c8b489d11fe768155b6fe6a7f8cfc29d0d1d3108651b753124817a0dd8a823f6",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_EDU_E_TE_005",
+        "score": 0.224,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_008",
+        "score": 0.415
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_TE_026",
+      "score": 0.373,
+      "rank": 27,
+      "hash": "fcd445906039e0c27efdee298cf4c962d2610139c234b8370d1b2ed1f2d68df1",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "17",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SHC_E_TE_001",
+        "score": 0.428,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_TE_009",
+        "score": 0.12
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_PP_001",
+      "score": 0.465,
+      "rank": 28,
+      "hash": "52bdaf430f34719a72c57211f0201fde0939305a3cfbd758fe4da051bed9c100",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "2",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SHC_E_PP_001",
+        "score": 0.307,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_PP_001",
+        "score": 0.304
+      }
+    },
+    {
+      "id": "MOCK_PSEG_NBI_EE_G_E_WH_001",
+      "score": 0.279,
+      "rank": 29,
+      "hash": "d821db2f80c0b5754d15df6e2a2d9adc05185e668c56d8bfdabe4ef2d631015c",
+      "nbiType": "SummerSeasonal",
+      "nbiFamily": "EE",
+      "applianceId": "7",
+      "fuelType": "ELECTRIC",
+      "insight": {
+        "id": "MOCK_I_SLF_E_WH_001",
+        "score": 0.303,
+        "values": {
+          "Value": "",
+          "UoM": "",
+          "date": ""
+        }
+      },
+      "action": {
+        "id": "MOCK_PSEG_A_G_E_WH_001",
+        "score": 0.172
+      }
+    }
+  ],
+  "nbi_delivery_helper_dict": {
+    "billing_info": {
+      "last_electric_billing_cycle_info": {
+        "last_billing_start": 1782892800,
+        "last_billing_end": 1785571200
+      },
+      "last_gas_billing_cycle_info": {
+        "last_billing_start": -1,
+        "last_billing_end": -1
+      }
+    }
+  }
+}

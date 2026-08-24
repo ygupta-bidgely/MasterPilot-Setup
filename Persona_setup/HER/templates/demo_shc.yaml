@@ -1,0 +1,158 @@
+
+num_of_lat_long_clusters : 1
+group_zipcodes : True 
+randomize_large_clusters : True 
+run_efficiency_categorisation: False
+
+cluster_size_limits:
+  min_cluster_size : 25
+  max_cluster_size : 40
+
+mandatory_features:
+  - fuelTypeTag
+
+feature_hierarchy:
+  fuelTypeTag: fuel_type_key
+  lat_long_cluster_extracted: lat_long_cluster_extracted_key
+  dwellingTypeTag: dwelling_type_key #derived from dwellingTypeTag
+  livingAreaTag: living_area_key #derived from livingAreaTag
+  zipcode: zipcode_key #special feature
+
+extra_inputs:
+  dataPrep:
+    heatingTypeDerivation:
+      disaggFuelTypes: "['Electric']" #in case of dual fuel pilots for other pilots it will be either of ['Electric'], ['Gas']
+      primaryHeatingFuelTypeFromDisaggSource: "ElectricDisagg" #in case of dual fuel pilots for other pilots it will be either of 'GasDisagg' or 'ElectricDisagg'
+      primaryHeatingFuelTypeThresholdFromMarketResearch: 0.5 #it can be 0<=x<=1
+      secondaryHeatingFuelTypeFromDisaggSource: "ElectricDisagg" #in case of dual fuel pilots for other pilots it will be ""
+      secondaryHeatingFuelTypeThresholdFromMarketResearch: 0.5 #in case of dual fuel pilots it can be 0<=x<=1 for other pilots it will be 0
+      defaultHeatingType: "Electric" #if no disagg data is available then this will be used based on market research & fuel type supported by utility
+
+definitions:
+  $key$: "'0-900'"
+  $key1$: "'900-1200'"
+  $key2$: "'1200-1500'"
+  $key3$: "'1500-2000'"
+  $key4$: "'2000-'"
+  $key5$: "'[0,1,5]'"
+  $key6$: "'[2,3,4,6,7,8,9,10,11,12,13]'"
+
+#future purpose
+frontEnd:
+  livingAreaBucket: "[$key$, $key1$, $key2$, $key3$, $key4$]"
+  dwellingTypeBucket: "[$key5$, $key6$]"
+
+
+custom_expressions:
+   
+  enrollment_events_statement: >
+    select
+      uuid,
+      case when electric_ami_active_meter_count+electric_nsm_active_meter_count+gas_water_nsm_active_meter_count+gas_water_ami_active_meter_count>0 then true else false end as is_active,
+      case when electric_ami_active_meter_count+electric_nsm_active_meter_count > 0 then true else false end as is_electric_user,
+      case when gas_water_nsm_active_meter_count+gas_water_ami_active_meter_count > 0 then true else false end as is_gas_user,
+      case when gas_water_nsm_active_meter_count+gas_water_ami_active_meter_count > 0 then true else false end as is_water_user,
+      case when electric_ami_active_meter_count>0 then true else false end as is_electric_ami_user,
+      case when electric_nsm_active_meter_count>0 then true else false end as is_electric_nsm_user,
+      case when gas_water_nsm_active_meter_count>0 then true else false end as is_gas_nsm_user,
+      case when gas_water_ami_active_meter_count>0 then true else false end as is_gas_ami_user,
+      case when gas_water_nsm_active_meter_count>0 then true else false end as is_water_nsm_user,
+      case when gas_water_ami_active_meter_count>0 then true else false end as is_water_ami_user
+    FROM (SELECT uuid,
+      count(distinct CASE WHEN gateway_ordinal in (2) THEN  meter_ordinal end) as electric_ami_active_meter_count,
+      count(distinct CASE WHEN gateway_ordinal in (3) THEN  meter_ordinal end) as electric_nsm_active_meter_count,
+      count(distinct CASE WHEN gateway_ordinal in (4) THEN  meter_ordinal end) as gas_water_nsm_active_meter_count,
+      count(distinct CASE WHEN gateway_ordinal in (5) THEN  meter_ordinal end) as gas_water_ami_active_meter_count
+    FROM enrollment_events_table
+      where gateway_ordinal in (2,3,4,5) and meter_ordinal>0 and end_timestamp=0
+      group by 1
+    ) enrollment_events_table
+    
+
+  appliance_profile_statement: >
+    SELECT uuid, 
+       STRUCT(
+        MAX(CASE WHEN seqnum1 = 1 THEN applianceProfileDisagg.pp end) AS pp,
+        MAX(CASE WHEN seqnum2 = 1 THEN applianceProfileDisagg.sh end) AS sh,
+        MAX(CASE WHEN seqnum3 = 1 THEN applianceProfileDisagg.primaryHeatingFuelType end) AS shFuelType,
+        MAX(CASE WHEN seqnum4 = 1 THEN applianceProfileDisagg.ac end) AS ac,
+        MAX(CASE WHEN seqnum5 = 1 THEN applianceProfileDisagg.ev end) AS ev
+      ) AS applianceProfileDisagg
+    FROM (SELECT appliance_profile_table.*,
+             ROW_NUMBER() OVER (partition by uuid order by cnt1 desc, start desc) AS seqnum1,
+             ROW_NUMBER() OVER (partition by uuid order by cnt2 desc, start desc) AS seqnum2,
+             ROW_NUMBER() OVER (partition by uuid order by cnt3 desc, start desc) AS seqnum3,
+             ROW_NUMBER() OVER (partition by uuid order by cnt4 desc, start desc) AS seqnum4,
+             ROW_NUMBER() OVER (partition by uuid order by cnt5 desc, start desc) AS seqnum5
+      FROM (SELECT appliance_profile_table.*,
+                   COUNT(*) OVER (partition by uuid, applianceProfileDisagg.pp) AS cnt1,
+                   COUNT(*) OVER (partition by uuid, applianceProfileDisagg.sh) AS cnt2,
+                   COUNT(*) OVER (partition by uuid, applianceProfileDisagg.primaryHeatingFuelType) AS cnt3,
+                   COUNT(*) OVER (partition by uuid, applianceProfileDisagg.ac) AS cnt4,
+                   COUNT(*) OVER (partition by uuid, applianceProfileDisagg.ev) AS cnt5
+            FROM appliance_profile_table
+           ) appliance_profile_table
+     ) appliance_profile_table
+    GROUP BY uuid
+ 
+custom_tags:
+  homeMetaData: >
+    struct(homeMetaData.dwelling, 
+    homeMetaData.livingArea, 
+    homeMetaData.lotSize, 
+    homeMetaData.latitude, 
+    homeMetaData.longitude,
+    homeMetaData.zipcode)
+
+  fuelTypeTag: >
+    case
+      when is_electric_user is true and is_water_user is true then 'DualFuel'
+      when is_electric_user is true then 'Electric'
+      when is_water_user is true then 'Water'
+      else 'not_found_from_fuelTypeTagQuery'
+    end
+
+  dwellingTypeTag: >
+    case
+      when homeMetaData.dwelling in (0,1,5) then $key5$
+      when homeMetaData.dwelling in (2,3,4,6,7,8,9,10,11,12,13) then $key6$
+      when homeMetaData.dwelling is null then null
+      else 'not_found_from_dwellingTypeTagQuery'
+    end
+
+
+  livingAreaTag: >
+    case
+      when COALESCE(homeMetaData.livingArea, homeMetaData.lotSize) <= 900 then '0-900'
+      when COALESCE(homeMetaData.livingArea, homeMetaData.lotSize) between 900 and 1200 then '900-1200'
+      when COALESCE(homeMetaData.livingArea, homeMetaData.lotSize) between 1200 and 1500 then '1200-1500'
+      when COALESCE(homeMetaData.livingArea, homeMetaData.lotSize) between 1500 and 2000 then '1500-2000'
+      when COALESCE(homeMetaData.livingArea, homeMetaData.lotSize) >2000 then '2000-'
+      else 'not_found_from_livingAreaTag'
+    end
+
+
+
+#{
+#    "shc_2_data_prep_mode" : "2",
+#    "batch_id" : "1", 
+#    "shc_pilot_configs" : [     
+#            {
+#                "pilot_id": "40004",
+#                "ntype": "40004",
+#                "shc_pilot_config_path": "s3://bidgely-ds/hareesh/shc2_configs/em_shc2_configs_exp_run_3rd_october_2024_batchid_1.yaml"
+#            }
+#    ]
+#}
+
+
+#{
+#     "shc_2_data_prep_mode" : "0", 
+#     "shc_pilot_configs" : [        
+#              {
+#                "pilot_id": "40004",
+#                "ntype": "40004",
+#                "shc_pilot_config_path": "s3://bidgely-ds/hareesh/shc2_configs/em_shc2_configs_exp_run_3rd_october_2024_batchid_1.yaml"
+#              }
+#    ]
+#}

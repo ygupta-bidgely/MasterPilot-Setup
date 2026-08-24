@@ -29,6 +29,7 @@ uv sync
 |------|--------------|
 | [`rate_structure_migration/`](rate_structure_migration/README.md) | Migrate utility rate plans from one or more source environments into a single target environment. |
 | [`cdg_user_setup/`](cdg_user_setup/README.md) | Create QA users by running the full CDG (Customer Data Generator) porting flow, driven by `config.json` + `sources.csv`. |
+| [`Persona_setup/`](Persona_setup/README.md) | Set up user personas for pilots: [`HER/`](Persona_setup/HER/README.md) (pilot config sync, DB SQL, S3 payload upload, NBI string resources, and the SHC 2.0 mock pipeline), [`BestRateEmail/`](Persona_setup/BestRateEmail/README.md) (user-scoped Best Rate email: rate selection, NBI assets, manual interaction, and the notification trigger), and [`TOUOnboarding/`](Persona_setup/TOUOnboarding/README.md) (user-scoped TOU Rate Onboarding email: rate-plan selection, enrolment file, transition wait, and the notification trigger), driven by `config.json`. |
 
 Then pick a tool, copy its config templates, and fill them in:
 

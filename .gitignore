@@ -22,3 +22,13 @@ rate_structure_migration/config.json
 cdg_user_setup/sources.csv
 cdg_user_setup/config.json
 cdg_user_setup/create_users_results.json
+cdg_user_setup/ported_uuids*.csv
+cdg_user_setup/ported_uuids*.txt
+cdg_user_setup/source_dev_uat_uuids.csv
+cdg_user_setup/source_dev_uat_pqa_uuids.csv
+Persona_setup/HER/config.json
+Persona_setup/HER/output/
+Persona_setup/BestRateEmail/config.json
+Persona_setup/BestRateEmail/output/
+Persona_setup/TOUOnboarding/config.json
+Persona_setup/TOUOnboarding/output/
