@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Prepare and trigger a user-scoped Best Rate email in MasterPilot ProductQA.
+"""Prepare and trigger a user-scoped Best Rate email.
 
-Driven by `config.json` (see config.json.example). The script intentionally
+Driven by the shared `Persona_setup/config.json`. The script intentionally
 does not write pilot-level configuration. It:
   1. Reads the user's live BILLING_CYCLE_PROJECTED Rate Comparison result.
   2. Selects the highest-savings non-current rate.
@@ -9,7 +9,8 @@ does not write pilot-level configuration. It:
   4. Writes and verifies a manual RATE_COMPARISON interaction.
   5. Resets the user's RATE_COMPARISON Email sent count.
   6. Optionally reruns aggregation.
-  7. Publishes the dedicated notification event to the MasterPilot queue.
+  7. Publishes the dedicated notification event to the environment's
+     notification queue (discovered from the pilot).
   8. Polls notification status for sentCount >= 1.
 
 The token is never printed. AWS credentials and permissions are resolved by
@@ -33,20 +34,19 @@ from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from _common import ApiClient as SharedApiClient  # noqa: E402
+from _common import PilotContext  # noqa: E402
+from _common import SetupError as SharedSetupError  # noqa: E402
+from _common import load as load_shared_config  # noqa: E402
+from _common.config import CONFIG_PATH as SHARED_CONFIG_PATH  # noqa: E402
+
 SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = SCRIPT_DIR / "config.json"
+SCRIPT_NAME = "BestRateEmail"
 
-REQUIRED_CONFIG_KEYS = ("AUTH_TOKEN", "UUID")
-
-DEFAULT_BASE_URL = "https://api-server-masterpilot-productqa.bidgely.com"
-DEFAULT_PILOT_ID = 88001
 DEFAULT_HOME_ORDINAL = 1
 DEFAULT_REGION = "us-west-2"
-DEFAULT_QUEUE_NAME = "NotificationsProcessorEvent-productqa-masterpilot"
-DEFAULT_PROFILE_BUCKET = "bidgely-profile-data-productqa"
-DEFAULT_DASHBOARD_URL = (
-    "https://masterpilot-mppqa01.bidgely.com/dashboard/insights/rate-plans"
-)
 DEFAULT_HTTP_TIMEOUT = 60
 DEFAULT_AGGREGATION_WAIT_SECONDS = 30
 DEFAULT_STATUS_TIMEOUT = 180
@@ -685,26 +685,13 @@ def run_aws_json(arguments: list[str]) -> dict[str, Any]:
         raise SetupError("AWS CLI did not return valid JSON") from exc
 
 
-def resolve_queue_url(region: str, queue_name: str, queue_url: str | None) -> str:
-    if queue_url:
-        return queue_url
-    response = run_aws_json(
-        ["sqs", "get-queue-url", "--region", region, "--queue-name", queue_name]
-    )
-    resolved = response.get("QueueUrl")
-    if not resolved:
-        raise SetupError(f"Could not resolve SQS queue {queue_name}")
-    return str(resolved)
-
-
 def send_notification(
     user_id: str,
     home_ordinal: int,
     region: str,
-    queue_name: str,
-    queue_url: str | None,
+    queue_url: str,
 ) -> str:
-    resolved_queue_url = resolve_queue_url(region, queue_name, queue_url)
+    resolved_queue_url = queue_url
     message = {
         "userId": user_id,
         "homeOrdinal": home_ordinal,
@@ -788,35 +775,43 @@ def write_artifact(
 
 
 def load_config() -> dict[str, Any]:
-    if not CONFIG_PATH.exists():
+    shared = load_shared_config(SCRIPT_NAME)
+    users = shared.users_for(SCRIPT_NAME)
+    if not users:
         raise SetupError(
-            f"{CONFIG_PATH} not found. Copy config.json.example to config.json and fill it in."
+            f"No users configured for {SCRIPT_NAME}. Add one to USERS in "
+            f'{SHARED_CONFIG_PATH} with "scripts": ["{SCRIPT_NAME}"].'
         )
-    with open(CONFIG_PATH) as f:
-        config = json.load(f)
-
-    missing = [k for k in REQUIRED_CONFIG_KEYS if not config.get(k)]
-    if missing:
-        raise SetupError(f"Missing required config key(s) in {CONFIG_PATH}: {', '.join(missing)}")
-
-    config["UUID"] = require_uuid(config["UUID"])
-    if not str(config["AUTH_TOKEN"]).strip():
-        raise SetupError("AUTH_TOKEN cannot be empty")
-
-    config.setdefault("PILOT_ID", DEFAULT_PILOT_ID)
-    if int(config["PILOT_ID"]) != DEFAULT_PILOT_ID:
+    if len(users) > 1:
         raise SetupError(
-            "This script is intentionally locked to MasterPilot 88001. "
-            "Review the resources and queue before supporting another pilot."
+            f"{len(users)} users configured for {SCRIPT_NAME}; this script runs "
+            f"one user at a time. Use run_personas.py or narrow the config."
         )
+    user = users[0]
 
-    config.setdefault("BASE_URL", DEFAULT_BASE_URL)
-    config.setdefault("HOME_ORDINAL", DEFAULT_HOME_ORDINAL)
-    config.setdefault("REGION", DEFAULT_REGION)
-    config.setdefault("QUEUE_NAME", DEFAULT_QUEUE_NAME)
-    config.setdefault("PROFILE_BUCKET", DEFAULT_PROFILE_BUCKET)
-    config.setdefault("DASHBOARD_URL", DEFAULT_DASHBOARD_URL)
-    config.setdefault("HTTP_TIMEOUT", DEFAULT_HTTP_TIMEOUT)
+    config: dict[str, Any] = {
+        "UUID": user["UUID"],
+        "AUTH_TOKEN": shared.token,
+        "BASE_URL": shared.base_url,
+        "HOME_ORDINAL": shared.home_ordinal,
+        "PILOT_ID": shared.pilot_id,
+        "REGION": shared.region,
+    }
+
+    # Where the partitioned interaction profile is uploaded. This is the
+    # platform's profile-data bucket (bidgely-profile-data-<env>), not the
+    # pilot's ingestion bucket, so it cannot be derived from the pilot's own
+    # config - it stays a required setting rather than a guess.
+    config["PROFILE_BUCKET"] = shared.require("PROFILE_BUCKET")
+    # The action's "View rate plan details" CTA link. Environment-specific, so
+    # there is no safe default.
+    config["DASHBOARD_URL"] = shared.require("DASHBOARD_URL")
+
+    # The notification queue is discovered from the pilot; QUEUE_URL in the
+    # shared config short-circuits the discovery when it is passed explicitly.
+    config["QUEUE_URL"] = shared.queue_url
+
+    config.setdefault("HTTP_TIMEOUT", shared.http_timeout)
     config.setdefault("AGGREGATION_WAIT_SECONDS", DEFAULT_AGGREGATION_WAIT_SECONDS)
     config.setdefault("STATUS_TIMEOUT", DEFAULT_STATUS_TIMEOUT)
     config.setdefault("STATUS_INTERVAL", DEFAULT_STATUS_INTERVAL)
@@ -826,6 +821,11 @@ def load_config() -> dict[str, Any]:
 def main() -> int:
     try:
         config = load_config()
+    except (SetupError, SharedSetupError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    try:
         if shutil.which("aws") is None:
             raise SetupError("AWS CLI is required to publish the notification")
 
@@ -884,13 +884,26 @@ def main() -> int:
         print(f"  waiting {aggregation_wait_seconds}s before notification")
         time.sleep(aggregation_wait_seconds)
 
-        log(f"Publishing notification to {config['QUEUE_NAME']}")
+        # Discovered from the pilot itself rather than assuming a queue name.
+        # PilotContext tolerates 404/500 on the pilot config reads via
+        # `expected`, which only the shared client honours, so discovery gets
+        # its own client rather than this module's stricter one.
+        queue_url = PilotContext.load(
+            SharedApiClient(
+                config["BASE_URL"],
+                str(config["AUTH_TOKEN"]).strip(),
+                int(config["HTTP_TIMEOUT"]),
+            ),
+            pilot_id,
+            config["REGION"],
+            config["QUEUE_URL"],
+        ).notification_queue_url()
+        log(f"Publishing notification to {queue_url}")
         message_id = send_notification(
             user_id,
             home_ordinal,
             config["REGION"],
-            config["QUEUE_NAME"],
-            None,
+            queue_url,
         )
         print(f"  SQS message ID: {message_id}")
 

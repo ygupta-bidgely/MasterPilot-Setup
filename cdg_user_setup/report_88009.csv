@@ -1,0 +1,5 @@
+PERSONA,PERSONA_DESCRIPTION,SOURCE_UUID,SOURCE_ENVIRONMENT,RATE_PLAN,PRIMARY_EMAIL,BILLING_CYCLE,METER_FUEL,BB_DURATION
+Dual Fuel BB,Dual Fuel BB_1,0064bdcd-b20c-40a9-8dd6-73436beef722,NA2,608A,bidgelyqa+DFmp_BB@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,12
+TOU PROMOTION,TOU PROMOTION,00e443ac-1acb-4fbf-be20-09df22b0388a,NA,180,bidgelyqa+mp_toupromotion@bidgely.com,CDG_15,AMI-ELECTRIC,0
+Best Rate Plan Alert,Best Rate Plan Alert,03668cce-0172-4d35-802d-6b78a4ea76cd,NA,180,bidgelyqa+mp_bestrate@bidgely.com,CDG_01,AMI-ELECTRIC,0
+GAS Monthly summary,GAS Monthly summary,002a3475-7fc9-47dd-9814-f1fb5cbdeaac,NA2,180,bidgelyqa+mp_amrGas@bidgely.com,CDG_01,AMR-GAS,0

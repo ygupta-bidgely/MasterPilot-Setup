@@ -1,4 +1,0 @@
-{
-  "AUTH_TOKEN": "{{access_token}}",
-  "UUID": "{{uuid}}"
-}

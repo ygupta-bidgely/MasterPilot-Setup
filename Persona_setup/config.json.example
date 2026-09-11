@@ -1,0 +1,74 @@
+{
+  "_comment": "Single shared config for every Persona_setup script. Point the whole suite at a new pilot by changing BASE_URL + PILOT_ID - everything else (buckets, prefixes, delimiters, date formats, rate plans, notification queue) is discovered from the pilot at run time. Run `uv run python run_personas.py` in this folder to pick which scripts to run.",
+
+  "BASE_URL": "https://api-server-<env>.bidgely.com",
+  "AUTH_TOKEN": "{{access_token}}",
+  "PILOT_ID": 88001,
+  "REGION": "us-west-2",
+
+  "_comment_token": "AUTH_TOKEN can be left as the placeholder and supplied as the BIDGELY_TOKEN environment variable instead, so a live token is never written to disk.",
+
+  "_comment_users": "USERS drives the whole suite. Each entry needs a UUID; `scripts` limits it to those scripts (omit `scripts` to use the user for every script). Per-script settings like VARIANT/FUEL/UNIT can go on the user entry or under `scripts` below.",
+  "USERS": [
+    {
+      "UUID": "00000000-0000-4000-8000-000000000000",
+      "label": "Welcome Email - electric",
+      "scripts": ["WelcomeEmail"],
+      "FUEL": "ELECTRIC"
+    },
+    {
+      "UUID": "00000000-0000-4000-8000-000000000001",
+      "label": "Welcome Email - gas user",
+      "scripts": ["WelcomeEmail"],
+      "FUEL": "GAS"
+    },
+    {
+      "UUID": "00000000-0000-4000-8000-000000000002",
+      "label": "Monthly Summary / HER / SHC",
+      "scripts": ["HER", "Standard"]
+    },
+    {
+      "UUID": "00000000-0000-4000-8000-000000000003",
+      "label": "Best Rate Plan Alert",
+      "scripts": ["BestRateEmail"]
+    },
+    {
+      "UUID": "00000000-0000-4000-8000-000000000004",
+      "label": "TOU Rate Onboarding Email",
+      "scripts": ["TOUOnboarding"]
+    }
+  ],
+
+  "_comment_scripts": "Optional per-script overrides. Anything omitted falls back to the top-level value, then the script's own default. A `UUID` here overrides the USERS list for that one script. Keys marked REQUIRED have no default on purpose - a wrong guess would break on a different environment, so they must be set explicitly.",
+  "scripts": {
+    "WelcomeEmail": {},
+    "MonthlySummary": { "VARIANT": "STANDARD" },
+    "BillProjection": { "VARIANT": "STANDARD" },
+    "BudgetAlert": { "THRESHOLD_PERCENT": 75 },
+    "Standard": { "VARIANT": "TIER" },
+    "TOU": { "VARIANT": "PLAIN" },
+    "EV": { "VARIANT": "PLAIN" },
+    "Solar": { "VARIANT": "PLAIN" },
+    "SolarTrueUp": { "UNIT": "KWH", "VARIANT": "PLAIN" },
+    "PoolPump": {},
+    "BudgetBilling": { "VARIANT": "PLAIN" },
+    "BestRateEmail": {
+      "_comment": "Both keys below are REQUIRED - neither can be derived from the pilot. PROFILE_BUCKET is the platform's profile-data bucket (bidgely-profile-data-<env>), a different bucket family from the pilot's file-drop bucket. DASHBOARD_URL is the portal host, whose hostname scheme differs from BASE_URL.",
+      "PROFILE_BUCKET": "bidgely-profile-data-<env>",
+      "DASHBOARD_URL": "https://<portal-host>/dashboard/insights/rate-plans"
+    },
+    "TOUOnboarding": {},
+    "HER": {
+      "_comment": "HER additionally needs DB access for its SQL step; see HER/README.md",
+      "FUEL_TYPE": "ELECTRIC",
+      "HOME_ID": "1"
+    }
+  },
+
+  "_comment_tuning": "Optional. Shown with their defaults.",
+  "HOME_ORDINAL": 1,
+  "HTTP_TIMEOUT": 60,
+  "AGGREGATION_WAIT_SECONDS": 30,
+  "STATUS_TIMEOUT": 180,
+  "STATUS_INTERVAL": 10
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Prepare and trigger a user-scoped TOU Rate Onboarding email in MasterPilot ProductQA.
+"""Prepare and trigger a user-scoped TOU Rate Onboarding email.
 
-Driven by `config.json` (see config.json.example). The script never writes
+Driven by the shared `Persona_setup/config.json`. The script never writes
 pilot-level configuration; every override it creates is scoped to the single
 user configured. It:
   1. Reads the user record for pilot, notification user type and current rate plan.
@@ -13,13 +13,14 @@ user configured. It:
   7. Resets the sent count and, if ingestion did not fire, publishes the event.
   8. Polls notification status, then fetches and verifies the rendered email.
 
-Only UUID and AUTH_TOKEN are required. The token is never printed. AWS
+The user comes from USERS in the shared config. The token is never printed. AWS
 credentials and permissions are resolved by the AWS CLI.
 """
 
 from __future__ import annotations
 
 import json
+import random
 import re
 import ssl
 import subprocess
@@ -34,12 +35,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from _common import SetupError as SharedSetupError  # noqa: E402
+from _common import load as load_shared_config  # noqa: E402
+from _common.config import CONFIG_PATH as SHARED_CONFIG_PATH  # noqa: E402
+
 SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = SCRIPT_DIR / "config.json"
+SCRIPT_NAME = "TOUOnboarding"
 
-REQUIRED_CONFIG_KEYS = ("AUTH_TOKEN", "UUID")
-
-DEFAULT_BASE_URL = "https://api-server-masterpilot-productqa.bidgely.com"
 DEFAULT_HOME_ORDINAL = 1
 DEFAULT_REGION = "us-west-2"
 DEFAULT_HTTP_TIMEOUT = 60
@@ -73,6 +77,21 @@ DEFAULT_SECTIONS = [
 
 CONSUMPTION_BASED = "CONSUMPTION_BASED"
 MANAGED_BY = "Managed by setup_tou_onboarding_email.py"
+
+# CREATE_USER mode: a fresh masterpilot-01 user is cloned structurally from the
+# newest USERENROLL row in the bucket (see find_any_recent_row), then these
+# identity/plan fields are overwritten by name via the pilot's own
+# user_creation_launchpad position map (see apply_field_overrides). Verified
+# against pilot 88001 live (api-server-masterpilot-productqa.bidgely.com):
+# position 0 CUSTOMER_ID, 1 USER_ACCOUNT_ID (=contractId), 2 PREMISE_ID,
+# 4 EMAIL_ID, 27 UNV_SDP (=dataStreamId), 31 RATE_PLAN_ID,
+# 32 RATE_PLAN_EFFECTIVE_DATE, 36 METER_TYPE (=dataStreamType). Position 22
+# (phoneNumber) has no name in this pilot's launchpad config, so it is left as
+# whatever the cloned template row carries.
+DEFAULT_EMAIL_PREFIX = "bidgelyqa+AUT_MP01_"
+DEFAULT_NEW_USER_RATE_PLAN = "180"
+DEFAULT_NEW_USER_EFFECTIVE_DATE_LOOKBACK_MONTHS = 3
+DEFAULT_NEW_USER_TOKEN_TIMEOUT = 900
 
 # Java SimpleDateFormat -> strftime, enough for the launchpad date configs.
 DATE_PATTERN_TOKENS = [("yyyy", "%Y"), ("MM", "%m"), ("dd", "%d")]
@@ -165,6 +184,7 @@ class ApiClient:
         body: Any | None = None,
         expected: tuple[int, ...] = (200,),
         tolerate: tuple[int, ...] = (),
+        accept: str | None = "application/json",
     ) -> Any:
         url = f"{self.base_url}{path}"
         if query:
@@ -173,8 +193,9 @@ class ApiClient:
         data = None
         headers = {
             "Authorization": f"Bearer {self.token}",
-            "Accept": "application/json",
         }
+        if accept:
+            headers["Accept"] = accept
         if body is not None:
             data = json.dumps(body, separators=(",", ":")).encode("utf-8")
             headers["Content-Type"] = "application/json"
@@ -260,6 +281,173 @@ def java_date_format_to_strftime(pattern: str) -> str:
     for java_token, strftime_token in DATE_PATTERN_TOKENS:
         result = result.replace(java_token, strftime_token)
     return result
+
+
+# --------------------------------------------------------------------------- #
+# Step 0: create a new user (CREATE_USER mode only)
+# --------------------------------------------------------------------------- #
+
+
+def generate_digits(count: int) -> str:
+    return "".join(random.choices("0123456789", k=count))
+
+
+def find_any_recent_row(contract: IngestionContract, scan_limit: int) -> tuple[str, str]:
+    """Return (row, source_key) for the newest non-blank enrolment row in the
+    bucket, used as a structural template when there is no existing user to
+    clone from."""
+    listing = run_aws_json(["s3api", "list-objects-v2", "--bucket", contract.bucket])
+    objects = [
+        item
+        for item in listing.get("Contents", [])
+        if item["Key"].startswith(f"{contract.enroll_prefix}_")
+    ]
+    objects.sort(key=lambda item: item["LastModified"], reverse=True)
+    for item in objects[:scan_limit]:
+        text = _read_s3_text(contract.bucket, item["Key"])
+        for line in text.splitlines():
+            if line.strip():
+                return line, item["Key"]
+    raise SetupError(
+        f"No {contract.enroll_prefix} rows found in the newest {scan_limit} files of "
+        f"{contract.bucket} to use as a new-user template."
+    )
+
+
+def apply_field_overrides(
+    contract: IngestionContract, row: str, overrides: dict[str, str]
+) -> str:
+    """Overwrite named fields (by user_creation_launchpad position) in an
+    enrolment row. Silently skips any name the pilot's own field-position map
+    doesn't define, so a naming mismatch degrades to "left as cloned" instead
+    of crashing."""
+    columns = row.rstrip("\n").split(contract.delimiter)
+    for name, value in overrides.items():
+        position = contract.field_positions.get(name)
+        if position is None:
+            detail(f"pilot has no {name} position; leaving template value in place")
+            continue
+        while len(columns) <= position:
+            columns.append("")
+        columns[position] = value
+    return contract.delimiter.join(columns)
+
+
+def first_of_month_months_ago(contract: IngestionContract, months_ago: int) -> str:
+    """The 1st of a month N months back, in the pilot's own date format.
+
+    The proven-working rate-change step always uses now.replace(day=1) (see
+    default_effective_date) - a bill-cycle-aligned date. An arbitrary
+    day-count lookback does NOT land on a cycle boundary, which is suspected
+    to be why a brand-new customer's first enrolment silently failed to
+    ingest (an existing customer's rate change tolerated it; establishing a
+    first-ever bill cycle apparently does not)."""
+    now = datetime.now(zoneinfo.ZoneInfo(contract.parser_timezone))
+    year, month = now.year, now.month - months_ago
+    while month <= 0:
+        month += 12
+        year -= 1
+    first_of_month = now.replace(year=year, month=month, day=1)
+    return first_of_month.strftime(java_date_format_to_strftime(contract.date_format))
+
+
+def resolve_uuid_from_token(client: ApiClient, token: str, timeout: int, interval: int) -> str:
+    """Mirrors Hawk's MasterPilot01UserCreator: masterpilot-dev ingestion is
+    intermittent/batch, not real-time, so give it a head start, then poll
+    /meta/tokens/{token} (and its ':inactive' variant) until the freshly
+    ingested enrolment resolves to a uuid."""
+    detail("waiting 30s for the enrolment to ingest before polling for a uuid")
+    time.sleep(30)
+    inactive_token = f"{token}:inactive"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        for candidate in (token, inactive_token):
+            # This endpoint returns a bare path string, not JSON. Sending
+            # Accept: application/json makes JAX-RS unable to satisfy content
+            # negotiation, which surfaces as an unconditional HTTP 500
+            # (javax.ws.rs.WebApplicationException) regardless of whether the
+            # token actually resolves - confirmed by replaying a token Hawk's
+            # own MasterPilot01UserCreator had just resolved successfully.
+            response = client.request(
+                "GET", f"/meta/tokens/{candidate}", tolerate=(404, 500), accept=None
+            )
+            value = payload_of(response) if isinstance(response, dict) else response
+            if isinstance(value, str) and "/" in value:
+                parts = value.split("/")
+                if len(parts) > 2 and parts[2]:
+                    return parts[2]
+        time.sleep(interval)
+    raise SetupError(f"Meta token for {token!r} never resolved to a uuid within {timeout}s")
+
+
+def create_new_user(
+    client: ApiClient,
+    contract: IngestionContract,
+    pilot_id: int,
+    config: dict[str, Any],
+    output_dir: Path,
+) -> str:
+    template_row, source_key = find_any_recent_row(contract, int(config["SCAN_LIMIT"]))
+    detail(f"cloning structure from {source_key}")
+
+    customer_id = generate_digits(9)
+    account_id = generate_digits(9)
+    premise_id = generate_digits(9)
+    data_stream_id = generate_digits(9)
+    email = f"{config['EMAIL_PREFIX']}{customer_id}@bidgely.com"
+    lookback_months = int(config["NEW_USER_EFFECTIVE_DATE_LOOKBACK_MONTHS"])
+    # Service starts well before the rate takes effect - mirrors
+    # MasterPilot01UserCreator's own defaults (serviceAgreementStartDate
+    # 2021-06-15 vs. ratePlanEffectiveDate 2025-05-07), just relative instead
+    # of hardcoded to a fixed calendar date.
+    service_start_date = first_of_month_months_ago(contract, lookback_months + 6)
+    rate_plan_effective_date = first_of_month_months_ago(contract, lookback_months)
+
+    row = apply_field_overrides(
+        contract,
+        template_row,
+        {
+            "CUSTOMER_ID": customer_id,
+            "USER_ACCOUNT_ID": account_id,
+            "PREMISE_ID": premise_id,
+            "EMAIL_ID": email,
+            "UNV_SDP": data_stream_id,
+            "RATE_PLAN_ID": config["NEW_USER_RATE_PLAN"],
+            "RATE_PLAN_EFFECTIVE_DATE": rate_plan_effective_date,
+            "SERVICE_START_DATE": service_start_date,
+        },
+    )
+    upload_enrolment_file(contract, row, output_dir)
+
+    meter_type_position = contract.field_positions.get("METER_TYPE")
+    data_stream_type = (
+        template_row.rstrip("\n").split(contract.delimiter)[meter_type_position]
+        if meter_type_position is not None
+        else "AMI"
+    )
+
+    token = f"{pilot_id}:{customer_id}_{account_id}_{premise_id}_{data_stream_id}_{data_stream_type}"
+    uuid = resolve_uuid_from_token(
+        client, token, int(config["NEW_USER_TOKEN_TIMEOUT"]), int(config["POLL_INTERVAL"])
+    )
+    detail(f"created user {uuid} (email={email})")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "created_user.json").write_text(
+        json.dumps(
+            {
+                "uuid": uuid,
+                "email": email,
+                "customerId": customer_id,
+                "ratePlanId": config["NEW_USER_RATE_PLAN"],
+                "ratePlanEffectiveDate": rate_plan_effective_date,
+                "serviceStartDate": service_start_date,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return uuid
 
 
 # --------------------------------------------------------------------------- #
@@ -985,47 +1173,73 @@ def report_rate_structure_image(client: ApiClient, user: UserContext, home_ordin
 
 
 def load_config() -> dict[str, Any]:
-    if not CONFIG_PATH.exists():
-        raise SetupError(
-            f"{CONFIG_PATH} not found. Copy config.json.example to config.json and fill it in."
-        )
-    with open(CONFIG_PATH) as f:
-        config = json.load(f)
+    shared = load_shared_config(SCRIPT_NAME)
 
-    missing = [k for k in REQUIRED_CONFIG_KEYS if not config.get(k)]
-    if missing:
-        raise SetupError(f"Missing required config key(s) in {CONFIG_PATH}: {', '.join(missing)}")
+    config: dict[str, Any] = {
+        "AUTH_TOKEN": shared.token,
+        "BASE_URL": shared.base_url,
+        "HOME_ORDINAL": shared.home_ordinal,
+        "PILOT_ID": shared.pilot_id,
+        "REGION": shared.region,
+    }
 
-    config["UUID"] = require_uuid(config["UUID"])
-    if not str(config["AUTH_TOKEN"]).strip():
-        raise SetupError("AUTH_TOKEN cannot be empty")
-
-    config.setdefault("BASE_URL", DEFAULT_BASE_URL)
-    config.setdefault("HOME_ORDINAL", DEFAULT_HOME_ORDINAL)
-    config.setdefault("REGION", DEFAULT_REGION)
-    config.setdefault("RATE_PLAN", None)
-    config.setdefault("EFFECTIVE_DATE", None)
-    config.setdefault("FOOTER_FROM_PILOT", None)
-    config.setdefault("SUBJECT_TEXT", DEFAULT_SUBJECT_TEXT)
-    config.setdefault("QUEUE_URL", None)
-    config.setdefault("SCAN_LIMIT", DEFAULT_SCAN_LIMIT)
-    config.setdefault("TRANSITION_TIMEOUT", DEFAULT_TRANSITION_TIMEOUT)
-    config.setdefault("EMAIL_TIMEOUT", DEFAULT_EMAIL_TIMEOUT)
-    config.setdefault("POLL_INTERVAL", DEFAULT_POLL_INTERVAL)
-    config.setdefault("RESET_SCHEDULE", False)
-    config.setdefault("MAX_PLAN_ATTEMPTS", DEFAULT_MAX_PLAN_ATTEMPTS)
-    config.setdefault("SKIP_FILE", False)
+    config["CREATE_USER"] = bool(shared.get("CREATE_USER", False))
+    if not config["CREATE_USER"]:
+        # CREATE_USER mode makes its own user, so a configured UUID is only
+        # required for the normal flow.
+        users = shared.users_for(SCRIPT_NAME)
+        if not users:
+            raise SetupError(
+                f"No users configured for {SCRIPT_NAME}. Add one to USERS in "
+                f'{SHARED_CONFIG_PATH} with "scripts": ["{SCRIPT_NAME}"], or '
+                f"set CREATE_USER to have the script create one."
+            )
+        if len(users) > 1:
+            raise SetupError(
+                f"{len(users)} users configured for {SCRIPT_NAME}; this script "
+                f"runs one user at a time. Use run_personas.py or narrow the config."
+            )
+        config["UUID"] = users[0]["UUID"]
+    # Every remaining setting keeps its previous default, but is now read from
+    # the shared config (top level or scripts.TOUOnboarding) first.
+    config["RATE_PLAN"] = shared.get("RATE_PLAN")
+    config["EFFECTIVE_DATE"] = shared.get("EFFECTIVE_DATE")
+    config["FOOTER_FROM_PILOT"] = shared.get("FOOTER_FROM_PILOT")
+    config["SUBJECT_TEXT"] = shared.get("SUBJECT_TEXT", DEFAULT_SUBJECT_TEXT)
+    config["QUEUE_URL"] = shared.queue_url
+    config["SCAN_LIMIT"] = shared.get("SCAN_LIMIT", DEFAULT_SCAN_LIMIT)
+    config["TRANSITION_TIMEOUT"] = shared.get(
+        "TRANSITION_TIMEOUT", DEFAULT_TRANSITION_TIMEOUT
+    )
+    config["EMAIL_TIMEOUT"] = shared.get("EMAIL_TIMEOUT", DEFAULT_EMAIL_TIMEOUT)
+    config["POLL_INTERVAL"] = shared.get("POLL_INTERVAL", DEFAULT_POLL_INTERVAL)
+    config["RESET_SCHEDULE"] = shared.get("RESET_SCHEDULE", False)
+    config["MAX_PLAN_ATTEMPTS"] = shared.get(
+        "MAX_PLAN_ATTEMPTS", DEFAULT_MAX_PLAN_ATTEMPTS
+    )
+    config["SKIP_FILE"] = shared.get("SKIP_FILE", False)
+    config["EMAIL_PREFIX"] = shared.get("EMAIL_PREFIX", DEFAULT_EMAIL_PREFIX)
+    config["NEW_USER_RATE_PLAN"] = shared.get(
+        "NEW_USER_RATE_PLAN", DEFAULT_NEW_USER_RATE_PLAN
+    )
+    config["NEW_USER_EFFECTIVE_DATE_LOOKBACK_MONTHS"] = shared.get(
+        "NEW_USER_EFFECTIVE_DATE_LOOKBACK_MONTHS",
+        DEFAULT_NEW_USER_EFFECTIVE_DATE_LOOKBACK_MONTHS,
+    )
+    config["NEW_USER_TOKEN_TIMEOUT"] = shared.get(
+        "NEW_USER_TOKEN_TIMEOUT", DEFAULT_NEW_USER_TOKEN_TIMEOUT
+    )
+    config["OUTPUT_DIR"] = shared.get("OUTPUT_DIR")
     return config
 
 
 def main() -> int:
     try:
         config = load_config()
-    except SetupError as exc:
+    except (SetupError, SharedSetupError) as exc:
         print(f"\nERROR: {exc}", file=sys.stderr)
         return 1
 
-    uuid = config["UUID"]
     home_ordinal = int(config["HOME_ORDINAL"])
     region = config["REGION"]
     output_dir = Path(config.get("OUTPUT_DIR") or DEFAULT_OUTPUT_DIR)
@@ -1033,11 +1247,23 @@ def main() -> int:
     client = ApiClient(config["BASE_URL"], str(config["AUTH_TOKEN"]).strip(), DEFAULT_HTTP_TIMEOUT)
 
     try:
-        log("1/8 Reading user record")
-        user = read_user(client, uuid)
+        if config["CREATE_USER"]:
+            pilot_id = int(config["PILOT_ID"])
+            log("0/8 Reading pilot ingestion contract (for user creation)")
+            contract = read_ingestion_contract(client, pilot_id)
 
-        log("2/8 Reading pilot ingestion contract")
-        contract = read_ingestion_contract(client, user.pilot_id)
+            log("0/8 Creating a new user")
+            uuid = create_new_user(client, contract, pilot_id, config, output_dir)
+
+            log("1/8 Reading user record")
+            user = read_user(client, uuid)
+        else:
+            uuid = config["UUID"]
+            log("1/8 Reading user record")
+            user = read_user(client, uuid)
+
+            log("2/8 Reading pilot ingestion contract")
+            contract = read_ingestion_contract(client, user.pilot_id)
 
         log("3/8 Selecting a TOU rate plan")
         moderation = read_config_map(client, "email_moderation", "pilot", user.pilot_id)

@@ -1,5 +1,0 @@
-{
-  "AUTH_TOKEN": "{{access_token}}",
-  "UUID": "{{uuid}}",
-  "PILOT_ID": 88001
-}

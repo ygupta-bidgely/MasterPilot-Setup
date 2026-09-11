@@ -8,15 +8,22 @@ production user's data, writes user metadata (persona, rate plan, email, billing
 cycle), syncs weather, generates the enroll/raw/billing files, and finally reads
 back the destination UUID.
 
+A user whose port fails is retried a few times with a growing pause, since the
+usual causes (slow prod fetch, gateway timeout, S3 hiccup) clear on their own.
+Anything still unported is written to `failed_users.csv` in the same format as
+`sources.csv`, so a follow-up run is just `cp failed_users.csv sources.csv`.
+
 Self-contained: depends only on the `requests` library. The DETO endpoints and
 payload shapes mirror the qa-utils `cdg` package.
 """
 
 import argparse
 import csv
+import io
 import json
 import re
 import sys
+import time
 import urllib.parse
 from datetime import datetime
 from pathlib import Path
@@ -27,6 +34,24 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = SCRIPT_DIR / "config.json"
 SOURCES_CSV_PATH = SCRIPT_DIR / "sources.csv"
 RESULTS_PATH = SCRIPT_DIR / "create_users_results.json"
+FAILED_CSV_PATH = SCRIPT_DIR / "failed_users.csv"
+
+# Column order of sources.csv, reused when writing the failures file so it can
+# be fed straight back in as a sources.csv.
+SOURCES_CSV_COLUMNS = (
+    "PERSONA",
+    "PERSONA_DESCRIPTION",
+    "SOURCE_UUID",
+    "SOURCE_ENVIRONMENT",
+    "RATE_PLAN",
+    "PRIMARY_EMAIL",
+    "BILLING_CYCLE",
+    "METER_FUEL",
+    "BB_DURATION",
+)
+
+DEFAULT_RETRIES = 2
+DEFAULT_RETRY_DELAY = 20
 
 # Constant settings that don't vary per user.
 REQUIRED_CONFIG_KEYS = (
@@ -109,15 +134,19 @@ def load_sources():
         raise ValueError(
             f"{SOURCES_CSV_PATH} not found. Copy sources.csv.example to sources.csv and fill it in."
         )
-    with open(SOURCES_CSV_PATH, newline="") as f:
-        reader = csv.DictReader(f)
-        header = set(reader.fieldnames or [])
-        missing_cols = REQUIRED_CSV_COLUMNS - header
-        if missing_cols:
-            raise ValueError(
-                f"{SOURCES_CSV_PATH} missing column(s): {', '.join(sorted(missing_cols))}"
-            )
-        raw_rows = list(reader)
+    # Tolerate a UTF-8 BOM and any leading blank lines before the header row.
+    with open(SOURCES_CSV_PATH, newline="", encoding="utf-8-sig") as f:
+        lines = f.read().splitlines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    reader = csv.DictReader(io.StringIO("\n".join(lines)))
+    header = set(reader.fieldnames or [])
+    missing_cols = REQUIRED_CSV_COLUMNS - header
+    if missing_cols:
+        raise ValueError(
+            f"{SOURCES_CSV_PATH} missing column(s): {', '.join(sorted(missing_cols))}"
+        )
+    raw_rows = list(reader)
 
     users = []
     for i, row in enumerate(raw_rows, start=2):  # row 1 is the header
@@ -164,6 +193,7 @@ class DetoClient:
     CREATE_BILLING_FILE = "/v1/fetchProdUserData/billingData"
     FETCH_USER_UUID = "/fetchUserUUID"
     ASSIGN_PHYSICAL_CLUSTER = "/v1/assign-physical-cluster"
+    VALID_METER_FUEL = "/v1/valid-meter-fuel"
 
     def __init__(self, base_url, access_token, timeout=DEFAULT_TIMEOUT):
         self.base_url = base_url.rstrip("/")
@@ -234,6 +264,17 @@ class DetoClient:
             "destinationPilotId": dest_pilot_id,
         }
         return self._post(self.FETCH_PROD_USER_DATA, payload)
+
+    # Pre-check: which meter fuels does the source user actually have?
+    def fetch_valid_meter_fuels(self, source_env, uuid):
+        """Return the list of meter fuels available on the source user (e.g.
+        ["AMI-ELECTRIC"] or ["AMI-ELECTRIC", "AMI-GAS"]) via the
+        valid-meter-fuel API. Empty list if the user/fuels can't be determined."""
+        data = self._post(f"{self.VALID_METER_FUEL}/{source_env}", {"source_uuids": [uuid]})
+        results = data.get("results") or []
+        if not results:
+            return []
+        return results[0].get("valid_meter_fuels") or []
 
     # Step 2
     def update_user_metadata(self, metadata):
@@ -334,6 +375,40 @@ class DetoClient:
 # --------------------------------------------------------------------------- #
 
 
+class FuelValidationError(Exception):
+    """Raised when a requested meter fuel isn't available on the source user."""
+
+
+class AlreadyPortedError(Exception):
+    """Raised when the persona already exists on the destination pilot.
+
+    Not a failure: the user is present, so there is nothing to create and
+    nothing to retry.
+    """
+
+
+def validate_meter_fuels(client, uuid, source_env, requested_fuels):
+    """Confirm every requested fuel is actually present on the source user.
+
+    Raises FuelValidationError (so the caller skips the user without porting) if
+    a requested fuel is missing, or if the available fuels can't be determined.
+    """
+    valid = client.fetch_valid_meter_fuels(source_env, uuid)
+    if not valid:
+        raise FuelValidationError(
+            f"could not determine the source user's meter fuels "
+            f"(valid-meter-fuel returned none); requested {requested_fuels}"
+        )
+    valid_norm = {f.strip().upper() for f in valid}
+    missing = [f for f in requested_fuels if f.strip().upper() not in valid_norm]
+    if missing:
+        raise FuelValidationError(
+            f"source user only has {valid}; requested {requested_fuels} "
+            f"(missing: {missing})"
+        )
+    return valid
+
+
 def _build_metadata(user, prod_data, config):
     """Merge the prod user's fetched details with the per-row overrides into the
     user-metadata payload."""
@@ -393,7 +468,7 @@ def _pre_check_delete(client, uuid, dest_pilot_id):
             client.delete_user_metadata(u["id"])
 
 
-def port_user(client, user, config, delete_existing, skip_weather, skip_cluster):
+def port_user(client, user, config, delete_existing, skip_weather, skip_cluster, check_fuel=True):
     """Run the full CDG flow for one user. Returns the destination UUID."""
     uuid = user["source_uuid"]
     meter_fuel = user["meter_fuel"]
@@ -402,6 +477,13 @@ def port_user(client, user, config, delete_existing, skip_weather, skip_cluster)
     dest_env = config["DESTINATION_ENVIRONMENT"]
     source_env = user["source_environment"]
 
+    # Pre-check meter fuels before any mutation (raises FuelValidationError to
+    # skip the user if a requested fuel isn't on the source account).
+    if check_fuel:
+        print("    [pre] validate meter fuels")
+        valid = validate_meter_fuels(client, uuid, source_env, meter_fuel)
+        print(f"          available: {valid}  requested: {meter_fuel}  ✓")
+
     if delete_existing:
         _pre_check_delete(client, uuid, dest_pilot_id)
 
@@ -409,6 +491,16 @@ def port_user(client, user, config, delete_existing, skip_weather, skip_cluster)
     prod_data = client.fetch_prod_user_data(
         uuid, utility_name, source_env, config["FILE_UPLOAD_BUCKET"], meter_fuel, dest_pilot_id
     )
+
+    # When the persona already exists on the destination pilot, this step
+    # short-circuits: it reports the uuid under `existing_users` and returns no
+    # `detailedUserData`. Metadata built from that would be missing the fields
+    # the API requires (first_name, address), so the POST would 400 every time
+    # - there is nothing to retry. Treat it as already-done instead.
+    if not prod_data.get("detailedUserData") and prod_data.get("existing_users"):
+        raise AlreadyPortedError(
+            prod_data.get("message") or "user persona already exists on this pilot"
+        )
 
     print("    [2/9] updateUserMetadata")
     client.update_user_metadata(_build_metadata(user, prod_data, config))
@@ -457,39 +549,112 @@ def port_user(client, user, config, delete_existing, skip_weather, skip_cluster)
 
 
 def process_user(client, user, config, args):
-    """Port one user, print result, return a result dict."""
+    """Port one user, retrying the whole flow on failure.
+
+    A port can fail part-way through for reasons that clear on their own - a
+    slow prod fetch, a gateway timeout, an S3 hiccup - so each user gets
+    `args.retries` extra attempts with a growing pause between them. Re-running
+    the flow is safe: every step either overwrites or re-posts the same data
+    for the same source UUID.
+
+    A meter-fuel failure is *not* retried: the source account simply lacks the
+    requested fuel, so another attempt would fail identically.
+    """
     label = user["persona"] or user["source_uuid"]
     print(f"\n[row {user['_row']}] {label}")
     print(
         f"    source_uuid={user['source_uuid']}  env={user['source_environment']}  "
         f"rate_plan={user['rate_plan'] or '(from prod)'}  fuel={','.join(user['meter_fuel'])}"
     )
-    try:
-        dest_uuid = port_user(
-            client,
-            user,
-            config,
-            delete_existing=args.delete_existing,
-            skip_weather=args.skip_weather,
-            skip_cluster=args.skip_cluster,
-        )
-        print(f"    ✓ SUCCESS  destination_uuid={dest_uuid}")
-        return {
-            "persona": user["persona"],
-            "source_uuid": user["source_uuid"],
-            "primary_email": user["primary_email"],
-            "destination_uuid": dest_uuid,
-            "status": "success",
-        }
-    except Exception as e:
-        print(f"    ✗ FAILED  {e}")
-        return {
-            "persona": user["persona"],
-            "source_uuid": user["source_uuid"],
-            "primary_email": user["primary_email"],
-            "status": "failed",
-            "error": str(e),
-        }
+    base = {
+        "persona": user["persona"],
+        "source_uuid": user["source_uuid"],
+        "primary_email": user["primary_email"],
+    }
+
+    attempts = max(1, int(args.retries) + 1)
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        if attempt > 1:
+            delay = int(args.retry_delay) * (attempt - 1)
+            print(f"    ↻ retry {attempt - 1}/{args.retries} in {delay}s")
+            time.sleep(delay)
+        try:
+            dest_uuid = port_user(
+                client,
+                user,
+                config,
+                delete_existing=args.delete_existing,
+                skip_weather=args.skip_weather,
+                skip_cluster=args.skip_cluster,
+                check_fuel=not args.skip_fuel_check,
+            )
+            print(f"    ✓ SUCCESS  destination_uuid={dest_uuid}")
+            result = {**base, "destination_uuid": dest_uuid, "status": "success"}
+            if attempt > 1:
+                result["attempts"] = attempt
+            return result
+        except AlreadyPortedError as e:
+            # Already present on the pilot - nothing to do, nothing to retry.
+            print(f"    = ALREADY PORTED  {e}")
+            return {**base, "status": "already_ported", "error": str(e)}
+        except FuelValidationError as e:
+            # Deterministic - the fuel isn't on the source account.
+            print(f"    ⚠ SKIPPED (meter-fuel check)  {e}")
+            return {**base, "status": "skipped", "error": str(e)}
+        except Exception as e:
+            last_error = e
+            remaining = attempts - attempt
+            suffix = f" ({remaining} attempt(s) left)" if remaining else ""
+            print(f"    ✗ attempt {attempt}/{attempts} failed: {e}{suffix}")
+
+    print(f"    ✗ FAILED after {attempts} attempt(s)")
+    return {
+        **base,
+        "status": "failed",
+        "error": str(last_error),
+        "attempts": attempts,
+    }
+
+
+def write_failed_csv(path, results, users):
+    """Write the users that did not port, in sources.csv format.
+
+    The output is a drop-in `sources.csv`, so a follow-up run is just
+    `cp <this file> sources.csv && uv run python create_users.py` - no hand
+    editing. Skipped (meter-fuel) users are included too: they still need
+    attention, and the file is the single list of what is left to do.
+    """
+    unresolved = {
+        r["source_uuid"] for r in results if r["status"] in ("failed", "skipped")
+    }
+    if not unresolved:
+        return None
+
+    by_uuid = {u["source_uuid"]: u for u in users}
+    with open(path, "w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(SOURCES_CSV_COLUMNS))
+        writer.writeheader()
+        for source_uuid in unresolved:
+            user = by_uuid.get(source_uuid)
+            if not user:
+                continue
+            writer.writerow(
+                {
+                    "PERSONA": user["persona"],
+                    "PERSONA_DESCRIPTION": user["persona_description"],
+                    "SOURCE_UUID": user["source_uuid"],
+                    "SOURCE_ENVIRONMENT": user["source_environment"],
+                    "RATE_PLAN": user["rate_plan"] or "",
+                    "PRIMARY_EMAIL": user["primary_email"],
+                    "BILLING_CYCLE": user["billing_cycle"],
+                    # Re-join on "|" so a dual-fuel cell survives a round trip.
+                    "METER_FUEL": "|".join(user["meter_fuel"]),
+                    # Stored as "<n> Month"; the column wants just the number.
+                    "BB_DURATION": user["bb_duration"].split()[0],
+                }
+            )
+    return path
 
 
 def main():
@@ -512,6 +677,33 @@ def main():
         default=None,
         help="Only process the first N users (handy for a single test user).",
     )
+    parser.add_argument(
+        "--skip-fuel-check",
+        action="store_true",
+        help="Skip the meter-fuel pre-check. By default a user is skipped (not ported) if "
+        "a requested fuel (e.g. AMI-GAS) isn't available on the source account.",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=DEFAULT_RETRIES,
+        help=f"Extra attempts per user after the first failure (default {DEFAULT_RETRIES}). "
+        "A meter-fuel failure is never retried - the source account lacks the fuel. "
+        "Use 0 to disable retrying.",
+    )
+    parser.add_argument(
+        "--retry-delay",
+        type=int,
+        default=DEFAULT_RETRY_DELAY,
+        help=f"Seconds to wait before a retry, multiplied by the attempt number "
+        f"(default {DEFAULT_RETRY_DELAY}, so 20s then 40s).",
+    )
+    parser.add_argument(
+        "--failed-csv",
+        default=str(FAILED_CSV_PATH),
+        help="Where to write the users that still did not port, in sources.csv "
+        f"format (default {FAILED_CSV_PATH.name}).",
+    )
     args = parser.parse_args()
 
     config = load_config()
@@ -533,6 +725,11 @@ def main():
     )
     print(f"Users to port : {len(users)}")
     print(f"Delete existing: {args.delete_existing}")
+    print(f"Meter-fuel check: {'off' if args.skip_fuel_check else 'on'}")
+    print(
+        f"Retries       : {args.retries} per user"
+        + (f", {args.retry_delay}s backoff" if args.retries else " (disabled)")
+    )
     print("=" * 70)
 
     client = DetoClient(
@@ -542,12 +739,16 @@ def main():
     results = [process_user(client, user, config, args) for user in users]
 
     successful = [r for r in results if r["status"] == "success"]
-    failed = [r for r in results if r["status"] != "success"]
+    already = [r for r in results if r["status"] == "already_ported"]
+    skipped = [r for r in results if r["status"] == "skipped"]
+    failed = [r for r in results if r["status"] == "failed"]
 
     report = {
         "timestamp": datetime.now().isoformat(),
         "total": len(results),
         "successful": len(successful),
+        "already_ported": len(already),
+        "skipped": len(skipped),
         "failed": len(failed),
         "users": results,
     }
@@ -558,12 +759,38 @@ def main():
     print("SUMMARY")
     print("=" * 70)
     print(f"Total : {len(results)}")
-    print(f"✓ Successful : {len(successful)}")
-    print(f"✗ Failed     : {len(failed)}")
-    print(f"Results written to {RESULTS_PATH}")
+    print(f"✓ Successful          : {len(successful)}")
+    print(f"= Already ported      : {len(already)}")
+    print(f"⚠ Skipped (fuel check): {len(skipped)}")
+    print(f"✗ Failed              : {len(failed)}")
+
+    retried = [r for r in successful if r.get("attempts", 1) > 1]
+    if retried:
+        print(f"\n{len(retried)} succeeded only after a retry:")
+        for r in retried:
+            print(f"  - {r['persona'] or r['source_uuid']}: {r['attempts']} attempts")
+    if failed:
+        print("\nFailed users:")
+        for r in failed:
+            print(f"  - {r['source_uuid']}: {r['error']}")
+    if skipped:
+        print("\nSkipped users:")
+        for r in skipped:
+            print(f"  - {r['source_uuid']}: {r['error']}")
+
+    failed_csv = write_failed_csv(Path(args.failed_csv), results, users)
+    print(f"\nResults written to {RESULTS_PATH}")
+    if failed_csv:
+        print(f"Users still to port : {failed_csv}")
+        print(
+            f"  Retry just those with: cp {Path(failed_csv).name} sources.csv "
+            f"&& uv run python create_users.py"
+        )
+    else:
+        print("Every user ported - no failures file written.")
     print("=" * 70)
 
-    if failed:
+    if failed or skipped:
         sys.exit(1)
 
 

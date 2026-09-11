@@ -83,3 +83,43 @@ By default no existing user is deleted (`--delete-existing` is off). Re-running
 for a `SOURCE_UUID` that is already ported re-POSTs its metadata; use
 `--delete-existing` for clean, idempotent re-runs (it deletes only the matching
 `source_uuid` in this pilot, then re-ports).
+
+### Meter-fuel pre-check
+
+Before porting each user, the script confirms every requested `METER_FUEL` is
+actually present on the source account, via the DETO `valid-meter-fuel` API. If
+a requested fuel is missing — e.g. you asked for `AMI-ELECTRIC|AMI-GAS` but the
+source user only has `AMI-ELECTRIC` — that user is **flagged and skipped (not
+ported)**, and the run exits non-zero. This runs before any mutation, so a
+skipped user is never partially created or deleted.
+
+```
+⚠ SKIPPED (meter-fuel check)  source user only has ['AMI-ELECTRIC'];
+   requested ['AMI-ELECTRIC', 'AMI-GAS'] (missing: ['AMI-GAS'])
+```
+
+Skipped users are listed in the summary and in `create_users_results.json`
+(`status: "skipped"`). Pass `--skip-fuel-check` to bypass the check entirely.
+
+## Listing ported users
+
+`fetch_ported_uuids.py` lists the users already ported into the destination
+pilot, via the DETO `fetch-user-attribute` API. It reuses the same `config.json`
+(base URL, token, `DESTINATION_PILOT_ID`) — no extra setup.
+
+```bash
+uv run python fetch_ported_uuids.py                    # ported (success) users in the config pilot
+uv run python fetch_ported_uuids.py --pilot 88001      # override the pilot id
+uv run python fetch_ported_uuids.py --include-failed   # include non-success rows too
+uv run python fetch_ported_uuids.py --suffix dev       # override the output label
+```
+
+Writes two files (both git-ignored), named per environment so dev/uat/productqa
+runs sit side by side. The label defaults to `DESTINATION_ENVIRONMENT` from
+config (override with `--suffix`):
+
+- `ported_uuids_<env>.csv` — `destination_uuid, source_uuid, status, attributes` (one row per user).
+- `ported_uuids_<env>.txt` — just the destination UUIDs, one per line.
+
+For example, running once with the dev config and once with the uat config
+produces `ported_uuids_dev.csv` and `ported_uuids_uat.csv`.

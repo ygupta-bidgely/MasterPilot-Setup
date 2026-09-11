@@ -2,3 +2,66 @@ PERSONA,PERSONA_DESCRIPTION,SOURCE_UUID,SOURCE_ENVIRONMENT,RATE_PLAN,PRIMARY_EMA
 High usage EV owner,Large home with an EV on a TOU plan,1e893a83-97aa-46ec-b028-a31ff681cdbb,NA,24,,CDG_01,AMI-ELECTRIC,3
 Dual fuel family,Gas heating + electric,2f904b94-08bb-57fd-c139-b42gg792deec,NA,,persona.dualfuel@bidgely.com,,AMI-ELECTRIC|AMI-GAS,0
 Low usage apartment,Small single-occupant flat,3a015c05-19cc-68ae-d240-c53hh803efgd,EU,,,,,
+
+
+
+TOTAL:
+
+PERSONA,PERSONA_DESCRIPTION,SOURCE_UUID,SOURCE_ENVIRONMENT,RATE_PLAN,PRIMARY_EMAIL,BILLING_CYCLE,METER_FUEL,BB_DURATION
+Dual Fuel Standard User - Flat Rate (2 tiers),Dual Fuel StandardUser2_11,00325d89-1de1-4fac-96aa-fd25bbbbd65c,NA2,011ID,bidgelyqa+DFmp_StandardUser2@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Standard User - Flat Rate (3 tiers),Dual Fuel StandardUser3_22,00624eca-55d1-4225-a0f7-cd06e073380e,NA2,E12,bidgelyqa+DFmp_StandardUser3@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Standard User - Tier Rate,Dual Fuel StandardUser_1,0029fba8-fda6-47d0-a562-aebfa4330cb1,NA2,180,bidgelyqa+DFmp_StandardUser@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel TOU Promotion,Dual Fuel TOUPromotion_34,0073b96e-9fda-42e0-a4ca-8df47ec4bf62,NA2,180,bidgelyqa+DFmp_TOUPromotion@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar,Dual Fuel Solar_21,15252d75-01fd-4dde-a1f5-8c885b6d8fa0,NA2,622SOLAR,bidgelyqa+DFmp_Solar@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel TOU,Dual Fuel TOU_24,000812ec-94fa-4d87-ae1e-cdb18eba06f7,NA2,608A,bidgelyqa+DFmp_TOU@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel TOU Coaching,Dual Fuel TOUCoaching_24,00117a03-685b-4f3e-b802-1882d652feb3,NA2,608A,bidgelyqa+DFmp_TOUCoaching@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel EV,Dual Fuel EV_1,0515b6d4-2380-4b23-b28d-d66cbc60fd22,NA2,622,bidgelyqa+DFmp_EV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar + TOU,Dual Fuel SolarTOU_2,30210a26-304f-46ec-bfb3-c98595467dc2,NA2,622SOLAR,bidgelyqa+DFmp_SolarTOU@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel TOU + EV,Dual Fuel TOUEV_17,0fe2ef4e-c607-4411-96ee-3aa95c207bb9,NA2,622,bidgelyqa+DFmp_TOUEV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar + EV,Dual Fuel SolarEV_21,0000a6f0-7f02-4a6f-8972-66dcf243fc81,NA2,622SOLAR,bidgelyqa+DFmp_SolarEV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar + EV + TOU,Dual Fuel SolarEVTOU_21,fc05b514-bec8-4095-8d40-e2db8f0f47c5,NA2,622SOLAR,bidgelyqa+DFmp_SolarEVTOU@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Pool pump user,Dual Fuel PoolPump_22,02768fba-72eb-435d-89f5-bf2fd717d564,NA2,180,bidgelyqa+DFmp_PoolPump@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel BB,Dual Fuel BB_1,0064bdcd-b20c-40a9-8dd6-73436beef722,NA2,608A,bidgelyqa+DFmp_BB@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,12
+Dual Fuel BB + TOU,Dual Fuel BBTOU_24,00082134-1efb-4444-ada9-1745fbfcacd4,NA2,608A,bidgelyqa+DFmp_BBTOU@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,12
+Dual Fuel BB + TOU + EV,Dual Fuel BBTOUEV_24,0b02083e-d319-4973-af88-7eb073413c48,NA2,608A,bidgelyqa+DFmp_BBTOUEV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,12
+Dual Fuel Solar (True up kWh),Dual Fuel SolarTruekWh_21,2bdd7d1b-7e3c-4c40-a99b-40d0feb3a93b,NA2,622SOLAR,bidgelyqa+DFmp_SolarTruekWh@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar (True up $),Dual Fuel SolarTrue$_34,2d262f4a-4270-4a83-a658-c3f356c621f3,NA2,622SOLAR,bidgelyqa+DFmp_SolarTrue$@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar (True up kWh) + TOU,Dual Fuel SolarTruekWhTOU_34,0263034c-5fe1-4110-80c3-9f52429d5ee8,NA2,622SOLAR,bidgelyqa+DFmp_SolarTruekWhTOU@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar (True up $) + TOU,Dual Fuel SolarTrue$TOU_22,4d9e09ab-e619-43a7-917b-a49fbd44c102,NA2,622SOLAR,bidgelyqa+DFmp_SolarTrue$TOU@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar (True up kWh) + EV,Dual Fuel SolarTruekWhEV_22,00064574-6cd4-4f0a-a45a-d954de2c2465,NA2,622SOLAR,bidgelyqa+DFmp_SolarTruekWhEV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar (True up $) + EV,Dual Fuel SolarTrue$EV_22,00071101-a9c7-42dd-8c86-e119df08a719,NA2,622SOLAR,bidgelyqa+DFmp_SolarTrue$EV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar (True up kWh) + TOU + EV,Dual Fuel SolarTruekWhTOUEV_24,20651e0b-793e-41e8-bb9d-ee0034bbf459,NA2,622SOLAR,bidgelyqa+DFmp_SolarTruekWhTOUEV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Dual Fuel Solar (True up $) + TOU + EV,Dual Fuel SolarTrue$TOUEV_21,5a028946-6f3a-4ec9-a0ab-97fa8113e930,NA2,622SOLAR,bidgelyqa+DFmp_SolarTrue$TOUEV@bidgely.com,CDG_01,AMI-ELECTRIC|AMR-GAS,0
+Standard User - Flat Rate (2 tiers),StandardUser2_11,1c2464bc-772a-46a2-852f-5711c5bca291,NA,011ID,bidgelyqa+mp_StandardUser2@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Standard User - Flat Rate (3 tiers),StandardUser3_22,f2ff8ee0-8768-4662-b036-0ba120aa9fcb,NA,E12,bidgelyqa+mp_StandardUser3@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Standard User - Tier Rate,StandardUser_1,01c01f4b-1569-4601-977f-486f835d6e0e,NA,180,bidgelyqa+mp_StandardUser@bidgely.com,CDG_01,AMI-ELECTRIC,0
+TOU Promotion,TOUPromotion_34,3326b01a-4b67-4240-a161-36dde466f93f,NA,180,bidgelyqa+mp_TOUPromotion@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar,Solar_21,f8909a29-72d8-45a4-9359-5f6f800145d5,NA,622SOLAR,bidgelyqa+mp_Solar@bidgely.com,CDG_01,AMI-ELECTRIC,0
+TOU,TOU_24,0a8e2e84-6fe0-439d-97d5-714a33018053,NA,608A,bidgelyqa+mp_TOU@bidgely.com,CDG_01,AMI-ELECTRIC,0
+TOU Coaching,TOUCoaching_24,44398f18-8ab5-4477-a1d7-6b7f0baf62ef,NA,608A,bidgelyqa+mp_TOUCoaching@bidgely.com,CDG_01,AMI-ELECTRIC,0
+EV,EV_1,5477afbf-4604-4112-8ea4-852f4c047644,NA,622,bidgelyqa+mp_EV@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar + TOU,SolarTOU_2,9b6d7d71-679a-4efc-bb2c-0bb9eecf2329,NA,622SOLAR,bidgelyqa+mp_SolarTOU@bidgely.com,CDG_01,AMI-ELECTRIC,0
+TOU + EV,TOUEV_17,7076881a-e997-4d29-9022-6e72ce69aff4,NA,622,bidgelyqa+mp_TOUEV@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar + EV,SolarEV_21,5485e2d2-1045-41a9-81c1-6df3c7e9b4e4,NA,622SOLAR,bidgelyqa+mp_SolarEV@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar + EV + TOU,SolarEVTOU_21,9ec1c1be-8372-45f9-a39d-396a87077818,NA,622SOLAR,bidgelyqa+mp_SolarEVTOU@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Pool pump user,PoolPump_22,986ae84b-464d-4001-a123-78a4223222ba,NA,180,bidgelyqa+mp_PoolPump@bidgely.com,CDG_01,AMI-ELECTRIC,0
+BB,BB_1,4867db1b-2512-4a7f-829b-6ca4a7967006,NA,608A,bidgelyqa+mp_BB@bidgely.com,CDG_01,AMI-ELECTRIC,12
+BB + TOU,BBTOU_24,265643e9-25f6-4329-85b5-56351d27545a,NA,608A,bidgelyqa+mp_BBTOU@bidgely.com,CDG_01,AMI-ELECTRIC,12
+BB + TOU + EV,BBTOUEV_24,05da3fee-b53d-48c8-a04c-2849adf83534,NA,608A,bidgelyqa+mp_BBTOUEV@bidgely.com,CDG_01,AMI-ELECTRIC,12
+Solar (True up kWh),SolarTruekWh_21,b61cb193-7408-4820-b0a5-2f1ac925c271,NA,622SOLAR,bidgelyqa+mp_SolarTruekWh@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar (True up $),SolarTrue$_34,4b4871b3-f683-4d8a-9f8b-98660c01aeb4,NA,622SOLAR,bidgelyqa+mp_SolarTrue$@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar (True up kWh) + TOU,SolarTruekWhTOU_34,76a26c51-8d16-4435-ae05-63d182211b23,NA,622SOLAR,bidgelyqa+mp_SolarTruekWhTOU@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar (True up $) + TOU,SolarTrue$TOU_22,1678ed32-c226-4a03-9d77-89b855cefbde,NA,622SOLAR,bidgelyqa+mp_SolarTrue$TOU@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar (True up kWh) + EV,SolarTruekWhEV_22,7c808bfe-f838-4410-ae58-f598796be928,NA,622SOLAR,bidgelyqa+mp_SolarTruekWhEV@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar (True up $) + EV,SolarTrue$EV_22,2d733d5d-c048-48a4-ae19-bbefdcfa05b5,NA,622SOLAR,bidgelyqa+mp_SolarTrue$EV@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar (True up kWh) + TOU + EV,SolarTruekWhTOUEV_24,8f215b2b-eca4-44c3-9140-65872a6dd30d,NA,622SOLAR,bidgelyqa+mp_SolarTruekWhTOUEV@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Solar (True up $) + TOU + EV,SolarTrue$TOUEV_21,e37bde40-c414-42bb-bfd1-cd21bc36509a,NA,622SOLAR,bidgelyqa+mp_SolarTrue$TOUEV@bidgely.com,CDG_01,AMI-ELECTRIC,0
+SHC,SHC,f7eee071-11a8-4be5-861b-461cdf18d48d,NA,194,bidgelyqa+mp_SHCHER@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Monthly Summary - Solar Elements,Monthly Summary - Solar Elements,1175296e-05ad-4b80-b8ed-611e9e5b2522,NA,180,bidgelyqa+mp_solar@bidgely.com,CDG_01,AMI-ELECTRIC,0
+TOU PROMOTION,TOU PROMOTION,00e443ac-1acb-4fbf-be20-09df22b0388a,NA,180,bidgelyqa+mp_toupromotion@bidgely.com,CDG_15,AMI-ELECTRIC,0
+Monthly Summary - TOU Coaching,Monthly Summary - TOU Coaching,033aa8e2-6813-4977-8ae8-273f2d5c818d,NA,194,bidgelyqa+mp_AMIElectric@bidgely.com,CDG_05,AMI-ELECTRIC,0
+Best Rate Plan Alert,Best Rate Plan Alert,03668cce-0172-4d35-802d-6b78a4ea76cd,NA,180,bidgelyqa+mp_bestrate@bidgely.com,CDG_01,AMI-ELECTRIC,0
+TOU Rate Onboarding Email,TOU Rate Onboarding Email,010c7636-f5e2-4372-a2d8-690dcbf8691c,NA,180,bidgelyqa+mp_AMIElectric@bidgely.com,CDG_01,AMI-ELECTRIC,0
+Seasonal HER,Seasonal HER,515071c3-1970-4b44-a5e6-f1b7b4e7f7c2,NA,194,bidgelyqa+mp_SeasonalHER@bidgely.com,CDG_01,AMI-ELECTRIC,0
+GAS Monthly summary,GAS Monthly summary,002a3475-7fc9-47dd-9814-f1fb5cbdeaac,NA2,180,bidgelyqa+mp_amrGas@bidgely.com,CDG_01,AMR-GAS,0
+

@@ -36,32 +36,63 @@ AWS CLI (`aws s3api`/`aws s3`, `aws sqs`).
 
 ## Setup
 
-The real config file holds a live token and is git-ignored. Copy the template
-and fill it in:
+Configuration lives in the single shared [`../config.json`](../config.json.example)
+— there is no per-folder config file. Add the user under `USERS` with
+`"scripts": ["TOUOnboarding"]`, plus any per-script setting below (on the user
+entry, under `scripts.TOUOnboarding`, or at the top level).
 
-```bash
-cp config.json.example config.json
-```
+Nothing about the pilot is hardcoded: point `BASE_URL` and `PILOT_ID` at a new
+pilot and this script works there unchanged. The notification queue is
+discovered from the pilot at run time.
+
+### CREATE_USER mode
+
+Set `CREATE_USER: true` under `scripts.TOUOnboarding` to have the script
+create a brand-new masterpilot-01 user itself before doing everything it
+already does, so a single run is fully self-contained - no pre-existing
+target user needed (the `USERS` entry is then not required).
 
 ```json
 {
-  "AUTH_TOKEN": "<api-server bearer token>",
-  "UUID": "<destination user uuid>"
+  "scripts": {
+    "TOUOnboarding": {
+      "CREATE_USER": true,
+      "FOOTER_FROM_PILOT": 10037
+    }
+  }
 }
 ```
 
-### Required
+The pilot the new user is created under is the shared `PILOT_ID`.
 
-| Key | Used for |
-|-----|----------|
-| `AUTH_TOKEN` | Bearer token for every `BASE_URL` call. |
-| `UUID` | The user this TOU Onboarding email is prepared and sent for. |
+It works by cloning the newest `USERENROLL` row in the bucket as a structural
+template (same technique as the rate-change step below), then overwriting the
+identity/plan fields by name using the pilot's own `user_creation_launchpad`
+position map - the same contract Hawk's `MasterPilot01UserCreator` reads, so
+a newly created user here is indistinguishable from one Hawk creates. It
+polls `/meta/tokens/{token}` (active, then `:inactive`) until the fresh
+enrolment resolves to a uuid, the same mechanism Hawk's own user creator
+uses. The new identity (uuid, email, customerId) is written to
+`output/created_user.json` in addition to the usual step log.
+
+| Key | Default | Used for |
+|-----|---------|----------|
+| `EMAIL_PREFIX` | `bidgelyqa+AUT_MP01_` | Prefix for the generated user's email (same convention as Hawk's `userDefaults.emailPrefix` for masterpilot-01), so the mail lands in the same monitored catch-all inbox. |
+| `NEW_USER_RATE_PLAN` | `180` | The plan the new user starts on (a known-good non-TOU baseline on pilot 88001), before the usual TOU transition step moves them onto a TOU plan. |
+| `NEW_USER_EFFECTIVE_DATE_LOOKBACK_MONTHS` | `3` | How many months back the new user's rate plan effective date is set (always the 1st of that month, matching the bill-cycle-aligned convention the proven rate-change step already uses - `now.replace(day=1)`). Service start is backdated a further 6 months before that, mirroring `MasterPilot01UserCreator`'s own defaults (a multi-year gap between `serviceAgreementStartDate` and `ratePlanEffectiveDate`). |
+| `NEW_USER_TOKEN_TIMEOUT` | `900` | Seconds to poll `/meta/tokens/{token}` for the new uuid before giving up. |
+
+Note: only fields the pilot's `user_creation_launchpad` config actually names
+get overridden (confirmed live for pilot 88001: `CUSTOMER_ID`,
+`USER_ACCOUNT_ID`, `PREMISE_ID`, `EMAIL_ID`, `UNV_SDP`, `RATE_PLAN_ID`,
+`RATE_PLAN_EFFECTIVE_DATE`). Any field the pilot leaves unnamed (e.g. phone
+number on pilot 88001) is left as whatever the cloned template row carries -
+the script logs which fields were skipped this way.
 
 ### Optional
 
 | Key | Default | Used for |
 |-----|---------|----------|
-| `BASE_URL` | `https://api-server-masterpilot-productqa.bidgely.com` | Every API call. |
 | `HOME_ORDINAL` | `1` | The home this runs against. |
 | `REGION` | `us-west-2` | SQS queue discovery/send and the S3 upload. |
 | `RATE_PLAN` | derived | Pin a known-good plan number or name (fastest - skips ranking and retries). E.g. `194` on pilot `88001`. |

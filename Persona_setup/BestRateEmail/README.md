@@ -1,8 +1,8 @@
 # Best Rate email persona setup
 
-Prepares and triggers a user-scoped **Best Rate** email in MasterPilot ProductQA,
-end to end, for one user. It intentionally does not write any pilot-level
-configuration — everything it touches is scoped to the target user.
+Prepares and triggers a user-scoped **Best Rate** email, end to end, for one
+user. It intentionally does not write any pilot-level configuration —
+everything it touches is scoped to the target user.
 
 `setup` runs these steps in order:
 
@@ -21,7 +21,7 @@ configuration — everything it touches is scoped to the target user.
    to `0` so the notification isn't suppressed as a duplicate.
 6. **Aggregation rerun** - requests an aggregation rerun and waits for it.
 7. **Notification** - publishes the `RATE_COMPARISON` / `Email` event to the
-   MasterPilot notifications queue via SQS.
+   environment's notifications queue via SQS (discovered from the pilot).
 8. **Poll** - polls notification status until `sentCount >= 1`.
 
 The token is never printed. AWS credentials/permissions are resolved by the
@@ -29,39 +29,31 @@ AWS CLI (`aws sqs send-message`, `aws s3api put-object`).
 
 ## Setup
 
-The real config file holds a live token and is git-ignored. Copy the template
-and fill it in:
+Configuration lives in the single shared [`../config.json`](../config.json.example)
+— there is no per-folder config file. Add the user under `USERS` with
+`"scripts": ["BestRateEmail"]`.
 
-```bash
-cp config.json.example config.json
-```
+Nothing about the pilot is hardcoded: point `BASE_URL` and `PILOT_ID` at a new
+pilot and this script works there unchanged. The notification queue is
+discovered from the pilot at run time.
 
-```json
-{
-  "AUTH_TOKEN": "<api-server bearer token>",
-  "UUID": "<destination user uuid>",
-  "PILOT_ID": 88001
-}
-```
+These may be set on the user entry, under `scripts.BestRateEmail`, or at the
+top level of the shared config.
 
 ### Required
 
 | Key | Used for |
 |-----|----------|
-| `AUTH_TOKEN` | Bearer token for every `BASE_URL` call. |
-| `UUID` | The user this Best Rate email is prepared and sent for. |
+| `PROFILE_BUCKET` | Where the partitioned interaction profile is uploaded (the platform's `bidgely-profile-data-<env>` bucket). Not derivable from the pilot's own config, so it must be set. |
+| `DASHBOARD_URL` | The action's "View rate plan details" CTA link. Environment-specific, so there is no default. |
 
 ### Optional
 
 | Key | Default | Used for |
 |-----|---------|----------|
-| `PILOT_ID` | `88001` | Must stay `88001` - the script is intentionally locked to MasterPilot ProductQA; it validates the resources, queue, and buckets it touches only apply to that pilot. |
-| `BASE_URL` | `https://api-server-masterpilot-productqa.bidgely.com` | Every API call. |
 | `HOME_ORDINAL` | `1` | Rate Comparison lookup, the interaction write/verify, and the notification payload. |
 | `REGION` | `us-west-2` | SQS queue lookup/send and the S3 upload. |
-| `QUEUE_NAME` | `NotificationsProcessorEvent-productqa-masterpilot` | The SQS queue the notification event is published to. |
-| `PROFILE_BUCKET` | `bidgely-profile-data-productqa` | Where the partitioned interaction profile is uploaded. |
-| `DASHBOARD_URL` | `https://masterpilot-mppqa01.bidgely.com/dashboard/insights/rate-plans` | The action's "View rate plan details" CTA link. |
+| `QUEUE_URL` | discovered | The SQS queue the notification event is published to. Set it to skip queue discovery. |
 | `HTTP_TIMEOUT` | `60` | Per-request timeout (seconds) for every API call. |
 | `AGGREGATION_WAIT_SECONDS` | `30` | Wait after requesting the aggregation rerun, before publishing the notification. |
 | `STATUS_TIMEOUT` | `180` | How long to poll notification status for `sentCount >= 1`. |
@@ -91,6 +83,6 @@ Written to `output/` (git-ignored):
 
 ## Requirements
 
-- The `aws` CLI on `PATH`, configured with credentials that can send to
-  `QUEUE_NAME` and write to `PROFILE_BUCKET`.
+- The `aws` CLI on `PATH`, configured with credentials that can resolve and
+  send to the environment's notification queue and write to `PROFILE_BUCKET`.
 - Network access to `BASE_URL`.
