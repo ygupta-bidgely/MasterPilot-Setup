@@ -33,40 +33,47 @@ The script can't do these, so it prints/writes what you need:
 
 ## Setup
 
-The real config file holds live tokens and is git-ignored. Copy the template
-and fill it in:
+Configuration lives in the single shared [`../config.json`](../config.json.example)
+— there is no per-folder config file. Add the user under `USERS` with
+`"scripts": ["HER"]`. `BASE_URL`, `AUTH_TOKEN` and `PILOT_ID` come from the
+top level of that file, shared with every other script.
 
-```bash
-cp config.json.example config.json
-```
+HER's own keys (`ENVIRONMENT`, `FUEL_TYPE`, `DETO_*`, `DB_*`, `HOME_ID`,
+`NHOOD_JAR_PATH`, `FEATURE_METADATA_S3_PATH`, `DATA_POINT_THRESHOLD`) may sit
+at the top level of the shared config or, better, under `scripts.HER` — the
+per-script section wins:
 
 ```json
 {
-  "BASE_URL": "https://api-server-masterpilot-productqa.bidgely.com",
-  "AUTH_TOKEN": "<api-server bearer token>",
-  "PILOT_ID": "88009",
-  "ENVIRONMENT": "productqa",
-  "FUEL_TYPE": "ELECTRIC",
-  "UUID": "<destination user uuid>",
-  "DETO_BASE_URL": "https://deto-productqa-api.bidgely.com",
-  "DETO_TOKEN": "<deto bearer token>",
-  "HOME_ID": "1",
-  "NHOOD_JAR_PATH": "/opt/bidgely/nhoodServices/onelib/OneJar-core-nhoods-4.0-SNAPSHOT.jar"
+  "scripts": {
+    "HER": {
+      "ENVIRONMENT": "productqa",
+      "FUEL_TYPE": "ELECTRIC",
+      "HOME_ID": "1",
+      "DETO_BASE_URL": "https://deto-productqa-api.bidgely.com",
+      "DETO_TOKEN": "<deto bearer token>",
+      "DB_HOST": "<env>-rds.cmlamxremgnb.us-west-2.rds.amazonaws.com",
+      "DB_NAME": "bidgelydbqa_<project>",
+      "DB_USER": "<db user>",
+      "DB_PASSWORD": "<db password>",
+      "DB_SSH_USER": "<jumphost ssh user>"
+    }
+  }
 }
 ```
 
 ### Required
 
-| Key | Used for |
-|-----|----------|
-| `BASE_URL` | Every non-DETO call: pilot config read/write, billing-cycle lookup, the `stringResources` push (passed as `$1` to the rendered script), and the `verify` calls. Also **derives** the expected `her_base_url` and the java `-Dqueue.suffix`. |
-| `AUTH_TOKEN` | Bearer token for all `BASE_URL` calls (passed as `$2` to the string-resources script). |
-| `PILOT_ID` | SQL `entity_id`, the `stringResources` URL path, pilot config calls, SHC cluster ids, all SHC S3 paths, and the runner's `-ntype`. |
-| `ENVIRONMENT` | The HER payload bucket (`bidgely-profile-data-<env>`), the SHC warehouse bucket (`bidgely-data-warehouse-<env>`), and the runner's `-Dmy.env`. |
-| `FUEL_TYPE` | The payload's `fuelType=` path segment; picks the `measurementType: GAS` header and which billing block gets filled; the SHC `cluster_info` `fuelTypeTag`/`name`. |
-| `UUID` | The HER persona user - payload filename, `uuid=` path segment, and the billing-cycle lookup. Unrelated to the SHC user list, which comes from DETO. |
-| `DETO_BASE_URL` | The SHC user-list fetch only. |
-| `DETO_TOKEN` | Bearer for the two DETO calls (**separate** from `AUTH_TOKEN`). |
+| Key | Where | Used for |
+|-----|-------|----------|
+| `BASE_URL` | shared, top level | Every non-DETO call: pilot config read/write, billing-cycle lookup, the `stringResources` push (passed as `$1` to the rendered script), and the `verify` calls. Also **derives** the expected `her_base_url` and the java `-Dqueue.suffix`. |
+| `AUTH_TOKEN` | shared, top level | Bearer token for all `BASE_URL` calls (passed as `$2` to the string-resources script). |
+| `PILOT_ID` | shared, top level | SQL `entity_id`, the `stringResources` URL path, pilot config calls, SHC cluster ids, all SHC S3 paths, and the runner's `-ntype`. |
+| `UUID` | `USERS` entry | The HER persona user - payload filename, `uuid=` path segment, and the billing-cycle lookup. Unrelated to the SHC user list, which comes from DETO. |
+| `ENVIRONMENT` | `scripts.HER` | The HER payload bucket (`bidgely-profile-data-<env>`), the SHC warehouse bucket (`bidgely-data-warehouse-<env>`), and the runner's `-Dmy.env`. |
+| `FUEL_TYPE` | `scripts.HER` | The payload's `fuelType=` path segment; picks the `measurementType: GAS` header and which billing block gets filled; the SHC `cluster_info` `fuelTypeTag`/`name`. |
+| `DETO_BASE_URL` | `scripts.HER` | The SHC user-list fetch only. |
+| `DETO_TOKEN` | `scripts.HER` | Bearer for the two DETO calls (**separate** from `AUTH_TOKEN`). |
 
 ### Optional
 
@@ -78,6 +85,8 @@ cp config.json.example config.json
 | `DATA_POINT_THRESHOLD` | `0` | Value pushed for `neighbourhood_comparison.data_point_threshold`. `0` = fully relaxed SHC generation; **push `20` before a pilot goes to prod**. |
 
 ### DB access (optional — the DB step is skipped without it)
+
+These go in the shared config too, at the top level or under `scripts.HER`.
 
 | Key | Default | Notes |
 |-----|---------|-------|
@@ -118,7 +127,7 @@ Which HER do you want to set up?
   3) Both         - monthly first, then seasonal
 ```
 
-It confirms the pilot/env/fuel/UUID from `config.json` first, offers a dry run,
+It confirms the pilot/env/fuel/UUID from the shared `../config.json` first, offers a dry run,
 then asks only the questions relevant to your choice. Pick Seasonal and it asks
 which season:
 

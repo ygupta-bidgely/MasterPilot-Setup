@@ -29,9 +29,10 @@ Other subcommands:
     (e.g. 0 for relaxed testing; remember to revert to 20 for prod).
 
 Reads BASE_URL / AUTH_TOKEN / PILOT_ID / ENVIRONMENT / FUEL_TYPE / UUID /
-DETO_BASE_URL / DETO_TOKEN from config.json (plus optional HOME_ID,
-NHOOD_JAR_PATH and FEATURE_METADATA_S3_PATH). Everything else is derived at
-runtime rather than configured:
+DETO_BASE_URL / DETO_TOKEN from the shared `Persona_setup/config.json` (plus
+optional HOME_ID, NHOOD_JAR_PATH and FEATURE_METADATA_S3_PATH). The HER-only
+keys may live at the top level or under `scripts.HER`. Everything else is
+derived at runtime rather than configured:
 
   - HER payload `batch=`  -> the oldest billing-cycle start for the user.
   - SHC `batch_id=`       -> the highest existing batch id in S3, plus one
@@ -66,8 +67,14 @@ try:
 except ImportError:  # the DB step is optional; everything else still runs
     pymysql = None
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from _common import SetupError as SharedSetupError  # noqa: E402
+from _common import load as load_shared_config  # noqa: E402
+from _common.config import CONFIG_PATH as SHARED_CONFIG_PATH  # noqa: E402
+
 SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = SCRIPT_DIR / "config.json"
+SCRIPT_NAME = "HER"
 TEMPLATES_DIR = SCRIPT_DIR / "templates"
 OUTPUT_DIR = SCRIPT_DIR / "output"
 
@@ -77,17 +84,6 @@ STRINGS_TEMPLATE = TEMPLATES_DIR / "set_string_resources.sh.template"
 # The SHC feature-metadata yaml, uploaded to FEATURE_METADATA_S3_PATH and passed
 # to the runner as -featureMetaDataFilePath.
 FEATURE_CONFIG_TEMPLATE = TEMPLATES_DIR / "demo_shc.yaml"
-
-REQUIRED_CONFIG_KEYS = (
-    "BASE_URL",
-    "AUTH_TOKEN",
-    "PILOT_ID",
-    "ENVIRONMENT",
-    "FUEL_TYPE",
-    "UUID",
-    "DETO_BASE_URL",
-    "DETO_TOKEN",
-)
 
 DEFAULT_TIMEOUT = 30.0
 
@@ -191,28 +187,54 @@ SQL_VALUES_RE = re.compile(
 
 
 def load_config():
-    if not CONFIG_PATH.exists():
+    shared = load_shared_config(SCRIPT_NAME)
+    users = shared.users_for(SCRIPT_NAME)
+    if not users:
         raise ValueError(
-            f"{CONFIG_PATH} not found. Copy config.json.example to config.json and fill it in."
+            f"No users configured for {SCRIPT_NAME}. Add one to USERS in "
+            f'{SHARED_CONFIG_PATH} with "scripts": ["{SCRIPT_NAME}"].'
         )
-    with open(CONFIG_PATH) as f:
-        config = json.load(f)
+    if len(users) > 1:
+        raise ValueError(
+            f"{len(users)} users configured for {SCRIPT_NAME}; this script runs "
+            f"one user at a time. Use run_personas.py or narrow the config."
+        )
 
-    missing = [k for k in REQUIRED_CONFIG_KEYS if not config.get(k)]
-    if missing:
-        raise ValueError(f"Missing required config key(s) in {CONFIG_PATH}: {', '.join(missing)}")
+    config = {
+        "UUID": users[0]["UUID"],
+        "AUTH_TOKEN": shared.token,
+        "BASE_URL": shared.base_url,
+        "PILOT_ID": shared.pilot_id,
+    }
 
-    config.setdefault("HOME_ID", "1")
-    config.setdefault("NHOOD_JAR_PATH", DEFAULT_NHOOD_JAR_PATH)
-    config.setdefault("FEATURE_METADATA_S3_PATH", DEFAULT_FEATURE_METADATA_S3_PATH)
+    # HER-only settings. They may sit at the top level of the shared config or
+    # under scripts.HER; `shared.get` resolves the per-script override first.
+    for key in ("ENVIRONMENT", "FUEL_TYPE", "DETO_BASE_URL", "DETO_TOKEN"):
+        value = shared.get(key)
+        if not value or not str(value).strip():
+            raise ValueError(
+                f"Missing required setting {key!r} in {SHARED_CONFIG_PATH} "
+                f"(set scripts.{SCRIPT_NAME}.{key} or the top-level {key})"
+            )
+        config[key] = value
+
+    config["HOME_ID"] = shared.get("HOME_ID", "1")
+    config["NHOOD_JAR_PATH"] = shared.get("NHOOD_JAR_PATH", DEFAULT_NHOOD_JAR_PATH)
+    config["FEATURE_METADATA_S3_PATH"] = shared.get(
+        "FEATURE_METADATA_S3_PATH", DEFAULT_FEATURE_METADATA_S3_PATH
+    )
     # 0 = fully relaxed SHC generation, which is what a mock/test pilot wants.
     # Push PROD_DATA_POINT_THRESHOLD before a pilot goes to prod.
-    config.setdefault("DATA_POINT_THRESHOLD", TEST_DATA_POINT_THRESHOLD)
+    config["DATA_POINT_THRESHOLD"] = shared.get(
+        "DATA_POINT_THRESHOLD", TEST_DATA_POINT_THRESHOLD
+    )
 
     # DB access is optional - the step is skipped when these aren't filled in.
-    config.setdefault("DB_PORT", DEFAULT_DB_PORT)
-    config.setdefault("DB_SSH_KEY", DEFAULT_DB_SSH_KEY)
-    config.setdefault(
+    for key in DB_CONFIG_KEYS:
+        config[key] = shared.get(key)
+    config["DB_PORT"] = shared.get("DB_PORT", DEFAULT_DB_PORT)
+    config["DB_SSH_KEY"] = shared.get("DB_SSH_KEY", DEFAULT_DB_SSH_KEY)
+    config["DB_SSH_HOST"] = shared.get(
         "DB_SSH_HOST", DEFAULT_DB_SSH_HOST_TEMPLATE.format(env=config["ENVIRONMENT"])
     )
     return config
@@ -988,7 +1010,7 @@ def sync_nbi_asset_data(config, sql_path, dry_run):
 
     missing_keys = db_config_missing(config)
     if missing_keys:
-        print(f"\n[db] skipped - config.json is missing: {', '.join(missing_keys)}")
+        print(f"\n[db] skipped - the shared config is missing: {', '.join(missing_keys)}")
         print("     Fill those in to have the nbi_asset_data rows inserted automatically.")
         return True
 
@@ -1138,7 +1160,7 @@ def cmd_interactive(config):
     print(f"  Environment : {config['ENVIRONMENT']}")
     print(f"  Fuel type   : {config['FUEL_TYPE']}")
     print(f"  UUID        : {config['UUID']}")
-    print("  (these come from config.json - edit it to change them)")
+    print(f"  (these come from {SHARED_CONFIG_PATH} - edit it to change them)")
     if not ask_yes_no("\nUse this configuration?", True):
         print("Aborted - nothing was changed.")
         return True
@@ -1585,7 +1607,11 @@ def main():
         argv = ["setup"] + argv
 
     args = parser.parse_args(argv)
-    config = load_config()
+    try:
+        config = load_config()
+    except (ValueError, SharedSetupError) as exc:
+        print(f"\nERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if args.command == "interactive":
         ok = cmd_interactive(config)
