@@ -34,6 +34,7 @@ cdg_user_setup/ported_uuids*.txt
 # emails, PDFs and manifests carrying QA identities -- all reproducible per run.
 MDS_AUTOMATION/results/
 MASTERPILOT-02/MDS_AUTOMATION/results/
+MASTERPILOT-02/MDS_NON_SOLAR/results/
 
 # Raw jumphost/terminal transcripts: tens of MB, carry host IPs and QA identities,
 # and are a point-in-time capture rather than anything the repo builds on.

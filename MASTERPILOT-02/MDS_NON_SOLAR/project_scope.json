@@ -1,0 +1,9 @@
+{
+  "_comment": "The pilots MDS_NON_SOLAR may act on (same family as MDS_AUTOMATION). mds_target.bootstrap() refuses any profile whose pilot is not listed here, before the target is applied and before any network call. Never add 88001.",
+  "project": "MASTERPILOT-02 / MDS_NON_SOLAR",
+  "allowed_pilots": [
+    88002,
+    88011
+  ],
+  "forbidden_note": "88001 (masterpilot01, bidgely-masterpilot-resi-fl-productqa) is deliberately excluded: it has no NVE lineage and its own separate automation. Never add it here."
+}
